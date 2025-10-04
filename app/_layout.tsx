@@ -1,24 +1,57 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+// app/_layout.tsx
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { SplashScreen, Stack, router } from 'expo-router';
+import { useEffect } from 'react';
+import { AuthProvider, useAuth } from '../context/AuthContext'; 
+import { LogBox, View, ActivityIndicator } from 'react-native';
+import { styles } from '../styles/homeStyle';
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+LogBox.ignoreLogs([
+  'Your code tried to access the native implementation of '
+]);
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+function RootLayoutNav() {
+  const { user, loading, role } = useAuth();
+  
+  const loaded = true; 
+  const error = null;
+
+  useEffect(() => {
+    if (error) throw error;
+  }, [error]);
+
+  useEffect(() => {
+    if (loaded && !loading) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded, loading]);
+
+  if (!loaded || loading) {
+    return (
+      <View style={styles.homeStyles.loadingContainer}>
+        <ActivityIndicator size="large" color="#10B981" />
+      </View>
+    );
+  }
+  
+  // KHÔNG CÓ LOGIC CHUYỂN HƯỚNG TẠI ĐÂY NỮA
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <Stack>
+      {/* Route gốc sẽ được xử lý bởi app/index.tsx */}
+      <Stack.Screen name="index" options={{ headerShown: false }} /> 
+      
+      {/* Các nhóm màn hình chính */}
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="(auth)/index" options={{ headerShown: false }} /> 
+    </Stack>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <AuthProvider>
+      <RootLayoutNav />
+    </AuthProvider>
   );
 }
