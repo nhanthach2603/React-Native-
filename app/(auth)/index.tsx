@@ -1,7 +1,7 @@
 // app/(auth)/index.tsx
 
 import { Ionicons } from '@expo/vector-icons';
-import { Link, router } from 'expo-router'; // Import Link và router
+import { Link } from 'expo-router'; // Import Link và router
 import React, { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,7 +31,7 @@ export default function LoginScreen() {
       
       // QUAN TRỌNG: Điều hướng thẳng về root index để kích hoạt logic phân quyền
       // Router sẽ nhận ra người dùng đã đăng nhập và chuyển hướng đến màn hình chính xác
-       router.replace('/'); 
+      // Không cần replace ở đây nữa, AuthProvider sẽ xử lý
     } catch (e: any) {
       let errorMessage = 'Đăng nhập thất bại. Vui lòng thử lại.';
       
@@ -60,7 +60,7 @@ export default function LoginScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
-      <View style={styles.header}>
+      <View style={styles.logoContainer}>
         <Ionicons name="cube-sharp" size={64} color="#10B981" />
         <Text style={styles.title}>WMS - Quản Lý Kho</Text>
       </View>
@@ -126,18 +126,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F3F4F6',
-    paddingHorizontal: 25,
+    justifyContent: 'center', // Căn giữa nội dung
+    paddingHorizontal: 20,
   },
-  header: {
+  logoContainer: {
     alignItems: 'center',
-    marginBottom: 50,
-    marginTop: 50,
+    marginBottom: 40,
   },
   title: {
     fontSize: 32,
     fontWeight: '800',
     color: '#1F2937',
     marginTop: 10,
+    textAlign: 'center',
   },
   formContainer: {
     backgroundColor: '#FFFFFF',
@@ -152,7 +153,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#1F2937',
+    color: '#374151',
     marginBottom: 30,
     textAlign: 'center',
   },
@@ -160,7 +161,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F9FAFB',
-    height: 50,
+    height: 55, // Tăng chiều cao
     borderRadius: 12,
     marginBottom: 20,
     borderWidth: 1,
@@ -168,6 +169,7 @@ const styles = StyleSheet.create({
   },
   icon: {
     paddingHorizontal: 10,
+    marginRight: 5,
   },
   input: {
     flex: 1,
@@ -178,11 +180,11 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: '#10B981',
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 12, // Đồng bộ bo góc
     marginTop: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    height: 50,
+    height: 55, // Đồng bộ chiều cao
   },
   buttonDisabled: {
     backgroundColor: '#A7F3D0',
@@ -198,12 +200,6 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     fontSize: 14,
     fontWeight: '500',
-  },
-  note: {
-    marginTop: 40,
-    fontSize: 12,
-    color: '#9CA3AF',
-    textAlign: 'center',
   },
   registerContainer: {
     flexDirection: 'row',

@@ -1,22 +1,28 @@
 // app/profile.tsx
 
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { router, Stack } from 'expo-router';
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, updateProfile } from 'firebase/auth';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Button,
-    Modal,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { Calendar } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { auth, storage } from '../config/firebase';
 import { useAuth, UserRole } from '../context/AuthContext';
 import { StaffService } from '../services/StaffService';
-import { styles } from '../styles/homeStyle';
+import { COLORS, styles } from '../styles/homeStyle';
 
 const getRoleDisplayName = (userRole: UserRole) => {
   switch (userRole) {
@@ -40,22 +46,33 @@ const getRoleDisplayName = (userRole: UserRole) => {
 interface EditProfileModalProps {
   isVisible: boolean;
   onClose: () => void;
-  onSave: (newName: string) => Promise<void>;
-  currentName: string;
+  onSave: (data: { displayName: string; phoneNumber: string; dateOfBirth: string }) => Promise<void>;
+  currentUser: {
+    displayName: string;
+    phoneNumber: string;
+    dateOfBirth: string;
+  };
 }
 
 const EditProfileModal: React.FC<EditProfileModalProps> = ({
   isVisible,
   onClose,
   onSave,
-  currentName,
+  currentUser,
 }) => {
-  const [displayName, setDisplayName] = useState(currentName);
+  const [displayName, setDisplayName] = useState(currentUser.displayName);
+  const [phoneNumber, setPhoneNumber] = useState(currentUser.phoneNumber);
+  const [dateOfBirth, setDateOfBirth] = useState(currentUser.dateOfBirth);
   const [loading, setLoading] = useState(false);
+  const [isCalendarVisible, setCalendarVisible] = useState(false);
 
   useEffect(() => {
-    setDisplayName(currentName);
-  }, [currentName]);
+    if (isVisible) {
+      setDisplayName(currentUser.displayName);
+      setPhoneNumber(currentUser.phoneNumber);
+      setDateOfBirth(currentUser.dateOfBirth);
+    }
+  }, [currentUser, isVisible]);
 
   const handleSave = async () => {
     if (!displayName.trim()) {
@@ -63,7 +80,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
       return;
     }
     setLoading(true);
-    await onSave(displayName);
+    await onSave({ displayName, phoneNumber, dateOfBirth });
     setLoading(false);
     onClose();
   };
@@ -71,17 +88,160 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
   return (
     <Modal animationType="slide" transparent={true} visible={isVisible} onRequestClose={onClose}>
       <View style={styles.salesStyles.modalOverlay}>
-        <View style={styles.salesStyles.modalView}>
-          <Text style={styles.salesStyles.modalTitle}>Chỉnh sửa thông tin</Text>
-          <TextInput
-            style={styles.salesStyles.modalInput}
-            placeholder="Tên hiển thị mới"
-            value={displayName}
-            onChangeText={setDisplayName}
-          />
-          <View style={styles.salesStyles.modalButtons}>
-            <Button title="Hủy" onPress={onClose} color="red" />
-            <Button title={loading ? 'Đang lưu...' : 'Lưu'} onPress={handleSave} color="green" disabled={loading} />
+        <View style={[styles.salesStyles.modalView, { padding: 25 }]}>
+          <Text style={[styles.salesStyles.modalTitle, { marginBottom: 25 }]}>Chỉnh sửa Tên</Text>
+
+          {/* Input group được làm đẹp */}
+          <View style={styles.staffStyles.modalInputGroup}>
+            <Ionicons name="person-outline" size={20} color={COLORS.text_secondary} style={styles.staffStyles.modalInputIcon} />
+            <TextInput
+              style={styles.salesStyles.modalInput}
+              placeholder="Tên hiển thị mới"
+              value={displayName}
+              onChangeText={setDisplayName}
+            />
+          </View>
+
+          <View style={styles.staffStyles.modalInputGroup}>
+            <Ionicons name="call-outline" size={20} color={COLORS.text_secondary} style={styles.staffStyles.modalInputIcon} />
+            <TextInput
+              style={styles.salesStyles.modalInput}
+              placeholder="Số điện thoại"
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              keyboardType="phone-pad"
+            />
+          </View>
+
+          <View style={styles.staffStyles.modalInputGroup}>
+            <Ionicons name="calendar-outline" size={20} color={COLORS.text_secondary} style={styles.staffStyles.modalInputIcon} />
+            <TouchableOpacity style={styles.staffStyles.pickerTouchable} onPress={() => setCalendarVisible(true)}>
+              <Text style={dateOfBirth ? styles.staffStyles.pickerValue : styles.staffStyles.pickerPlaceholder}>
+                {dateOfBirth ? new Date(dateOfBirth).toLocaleDateString('vi-VN') : 'Chọn ngày sinh'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <Modal
+            animationType="fade"
+            transparent={true}
+            visible={isCalendarVisible}
+            onRequestClose={() => setCalendarVisible(false)}
+          >
+            <TouchableOpacity style={styles.salesStyles.modalOverlay} onPress={() => setCalendarVisible(false)}>
+              <View style={styles.salesStyles.modalView}>
+                <Calendar
+                  onDayPress={(day) => {
+                    setDateOfBirth(day.dateString);
+                    setCalendarVisible(false);
+                  }}
+                  markedDates={{ [dateOfBirth]: { selected: true, selectedColor: COLORS.primary } }}
+                  // Cho phép chọn ngày trong quá khứ
+                  maxDate={new Date().toISOString().split('T')[0]}
+                />
+              </View>
+            </TouchableOpacity>
+          </Modal>
+
+          {/* Các nút bấm được làm đẹp */}
+          <View style={[styles.salesStyles.modalButtons, { marginTop: 10 }]}>
+            <TouchableOpacity style={[styles.staffStyles.modalButton, styles.staffStyles.modalButtonSecondary]} onPress={onClose}>
+              <Text style={styles.staffStyles.modalButtonText}>Hủy</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.staffStyles.modalButton, styles.staffStyles.modalButtonPrimary]} onPress={handleSave} disabled={loading}>
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.staffStyles.modalButtonText}>Lưu</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+interface ChangePasswordModalProps {
+  isVisible: boolean;
+  onClose: () => void;
+  onSave: (currentPassword: string, newPassword: string) => Promise<void>;
+}
+
+const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
+  isVisible,
+  onClose,
+  onSave,
+}) => {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Reset state khi modal được mở hoặc đóng
+  useEffect(() => {
+    if (!isVisible) {
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setLoading(false);
+    }
+  }, [isVisible]);
+
+  const handleSave = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng điền đầy đủ các trường.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Lỗi', 'Mật khẩu mới và xác nhận mật khẩu không khớp.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      Alert.alert('Mật khẩu yếu', 'Mật khẩu mới phải có ít nhất 6 ký tự.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await onSave(currentPassword, newPassword);
+      onClose(); // Đóng modal nếu thành công
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (error) {
+      // Lỗi đã được xử lý ở hàm cha, chỉ cần dừng loading
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal animationType="slide" transparent={true} visible={isVisible} onRequestClose={onClose}>
+      <View style={styles.salesStyles.modalOverlay}>
+        <View style={[styles.salesStyles.modalView, { padding: 25 }]}>
+          <Text style={[styles.salesStyles.modalTitle, { marginBottom: 25 }]}>Đổi mật khẩu</Text>
+
+          <View style={styles.staffStyles.modalInputGroup}>
+            <Ionicons name="lock-closed-outline" size={20} color={COLORS.text_secondary} style={styles.staffStyles.modalInputIcon} />
+            <TextInput style={styles.salesStyles.modalInput} placeholder="Mật khẩu hiện tại" value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry />
+          </View>
+
+          <View style={styles.staffStyles.modalInputGroup}>
+            <Ionicons name="key-outline" size={20} color={COLORS.text_secondary} style={styles.staffStyles.modalInputIcon} />
+            <TextInput style={styles.salesStyles.modalInput} placeholder="Mật khẩu mới" value={newPassword} onChangeText={setNewPassword} secureTextEntry />
+          </View>
+
+          <View style={styles.staffStyles.modalInputGroup}>
+            <Ionicons name="key-outline" size={20} color={COLORS.text_secondary} style={styles.staffStyles.modalInputIcon} />
+            <TextInput style={styles.salesStyles.modalInput} placeholder="Xác nhận mật khẩu mới" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
+          </View>
+
+          <View style={[styles.salesStyles.modalButtons, { marginTop: 10 }]}>
+            <TouchableOpacity style={[styles.staffStyles.modalButton, styles.staffStyles.modalButtonSecondary]} onPress={onClose}>
+              <Text style={styles.staffStyles.modalButtonText}>Hủy</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.staffStyles.modalButton, styles.staffStyles.modalButtonPrimary]} onPress={handleSave} disabled={loading}>
+              {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.staffStyles.modalButtonText}>Lưu</Text>}
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -91,20 +251,117 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { currentUser, loading, refreshCurrentUser } = useAuth();
+  const { currentUser, user, loading, refreshCurrentUser, logout } = useAuth(); // Lấy thêm `user` và `logout` từ context
   const [isModalVisible, setModalVisible] = useState(false);
+  const [isPasswordModalVisible, setPasswordModalVisible] = useState(false);
 
-  const handleSaveProfile = async (newName: string) => {
+  // [SỬA LỖI] Xử lý việc quay lại một cách an toàn.
+  // Nếu có thể quay lại, thực hiện router.back().
+  // Nếu không, chuyển hướng đến màn hình chính để tránh lỗi.
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/home');
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.replace('/(auth)'); // Chuyển hướng về màn hình đăng nhập sau khi logout
+    } catch (e) {
+      console.error("Lỗi khi đăng xuất:", e);
+      Alert.alert("Lỗi", "Không thể đăng xuất. Vui lòng thử lại.");
+    }
+  };
+  const handleSaveProfile = async (data: { displayName: string; phoneNumber: string; dateOfBirth: string }) => {
     if (!currentUser?.uid) return;
     try {
-      await StaffService.updateStaff(currentUser.uid, { displayName: newName });
+      await StaffService.updateStaff(currentUser.uid, { 
+        displayName: data.displayName,
+        phoneNumber: data.phoneNumber,
+        dateOfBirth: data.dateOfBirth,
+      });
       await refreshCurrentUser(); // Cập nhật lại thông tin user trong context
+      await updateProfile(auth.currentUser!, { displayName: data.displayName }); // Đồng bộ tên với Auth
       Alert.alert('Thành công', 'Đã cập nhật tên hiển thị.');
     } catch (e: any) {
       Alert.alert('Lỗi', `Không thể cập nhật: ${e.message}`);
     }
   };
 
+  const handleChangePassword = async (currentPassword: string, newPassword: string) => {
+    if (!user || !user.email) {
+      Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng để đổi mật khẩu.');
+      return;
+    }
+
+    try {
+      // Bước 1: Yêu cầu người dùng xác thực lại
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+
+      // Bước 2: Nếu xác thực thành công, cập nhật mật khẩu mới
+      await updatePassword(user, newPassword);
+
+      Alert.alert('Thành công', 'Đã đổi mật khẩu thành công.');
+    } catch (error: any) {
+      console.error("Lỗi đổi mật khẩu:", error.code);
+      if (error.code === 'auth/wrong-password') {
+        Alert.alert('Lỗi', 'Mật khẩu hiện tại không đúng. Vui lòng thử lại.');
+      } else {
+        Alert.alert('Lỗi', `Không thể đổi mật khẩu: ${error.message}`);
+      }
+      throw error; // Ném lỗi để modal biết và không tự đóng
+    }
+  };
+
+  const formatDate = (isoString: string | undefined) => {
+    if (!isoString) return 'Chưa có';
+    try {
+      return new Date(isoString).toLocaleDateString('vi-VN');
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e) {
+      return isoString; // Trả về chuỗi gốc nếu không phải định dạng hợp lệ
+    }
+  };
+
+  const handlePickAvatar = async () => {
+    // Yêu cầu quyền truy cập thư viện ảnh
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permissionResult.granted === false) {
+      Alert.alert("Cần cấp quyền", "Bạn cần cấp quyền truy cập thư viện ảnh để thay đổi avatar.");
+      return;
+    }
+
+    const pickerResult = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (pickerResult.canceled) {
+      return;
+    }
+
+    const imageUri = pickerResult.assets[0].uri;
+
+    // Upload ảnh lên Firebase Storage
+    if (currentUser?.uid && imageUri) {
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+      const storageRef = ref(storage, `avatars/${currentUser.uid}`);
+      await uploadBytes(storageRef, blob);
+
+      // Lấy URL và cập nhật vào Firestore
+      const downloadURL = await getDownloadURL(storageRef);
+      await StaffService.updateStaff(currentUser.uid, { avatarUrl: downloadURL });
+      await refreshCurrentUser();
+      Alert.alert("Thành công", "Đã cập nhật ảnh đại diện.");
+    }
+  };
   if (loading || !currentUser) {
     return (
       <View style={[styles.staffStyles.container, { justifyContent: 'center' }]}>
@@ -114,45 +371,108 @@ export default function ProfileScreen() {
   }
 
   return (
-    <View style={[styles.staffStyles.container, { paddingTop: insets.top + 20 }]}>
-      <View style={styles.salesStyles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={{ padding: 5 }}>
+    <View style={[styles.staffStyles.container, { paddingTop: insets.top, paddingHorizontal: 0 }]}>
+      {/* [SỬA LỖI] Ẩn thanh tiêu đề mặc định của Stack Navigator */}
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* Header tùy chỉnh */}
+      <View style={[styles.salesStyles.header, { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 }]}>
+        <TouchableOpacity onPress={handleGoBack} style={{ padding: 5 }}>
           <Ionicons name="arrow-back" size={28} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.staffStyles.headerTitle}>Thông tin cá nhân</Text>
-        <View style={{ width: 38 }} />
+        {/* Đảm bảo không có text node nào bị lạc trực tiếp bên trong View */}
+        <Text style={[styles.staffStyles.headerTitle, { marginBottom: 0 }]}>Thông tin cá nhân</Text> 
+        <TouchableOpacity onPress={handleLogout} style={{ padding: 5 }}>
+          {/* Bọc Ionicons trong một View để tránh các vấn đề về text node không mong muốn */}
+          <View><Ionicons name="log-out-outline" size={28} color={COLORS.error} /></View>
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.staffStyles.infoCard}>
-        <View style={styles.staffStyles.infoRow}>
-          <Ionicons name="mail-outline" size={24} color="#6B7280" style={styles.staffStyles.infoIcon} />
-          <Text style={styles.staffStyles.infoLabel}>Email:</Text>
-          <Text style={styles.staffStyles.infoValue}>{currentUser.email}</Text>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
+        {/* Avatar */}
+        <View style={styles.staffStyles.profileAvatarContainer}>
+          <TouchableOpacity onPress={handlePickAvatar}>
+            {currentUser.avatarUrl ? (
+              <Image source={{ uri: currentUser.avatarUrl }} style={styles.staffStyles.profileAvatarImage} />
+            ) : (
+              <View style={styles.staffStyles.profileAvatar}>
+                <Text style={styles.staffStyles.profileAvatarText}>
+                  {currentUser.displayName?.charAt(0).toUpperCase() || '?'}
+                </Text>
+              </View>
+            )}
+            <View style={styles.staffStyles.cameraIconOverlay}>
+              <Ionicons name="camera" size={20} color="#FFFFFF" />
+            </View>
+          </TouchableOpacity>
         </View>
-        <View style={styles.staffStyles.infoRow}>
-          <Ionicons name="person-outline" size={24} color="#6B7280" style={styles.staffStyles.infoIcon} />
-          <Text style={styles.staffStyles.infoLabel}>Tên hiển thị:</Text>
-          <Text style={styles.staffStyles.infoValue}>{currentUser.displayName}</Text>
+        
+        <View style={styles.staffStyles.infoCard}>
+          <View style={styles.staffStyles.infoRow}>
+            <Ionicons name="mail-outline" size={24} color="#6B7280" style={styles.staffStyles.infoIcon} />
+            <Text style={styles.staffStyles.infoLabel}>Email:</Text>
+            <Text style={styles.staffStyles.infoValue}>{currentUser.email}</Text>
+          </View>
+          <View style={styles.staffStyles.infoRow}>
+            <Ionicons name="person-outline" size={24} color="#6B7280" style={styles.staffStyles.infoIcon} />
+            <Text style={styles.staffStyles.infoLabel}>Tên hiển thị:</Text>
+            <Text style={styles.staffStyles.infoValue}>{currentUser.displayName}</Text>
+          </View>
+          <View style={styles.staffStyles.infoRow}>
+            <Ionicons name="briefcase-outline" size={24} color="#6B7280" style={styles.staffStyles.infoIcon} />
+            <Text style={styles.staffStyles.infoLabel}>Vai trò:</Text>
+            <Text style={styles.staffStyles.infoValue}>{getRoleDisplayName(currentUser.role)}</Text>
+          </View>
+          <View style={styles.staffStyles.infoRow}>
+            <Ionicons name="call-outline" size={24} color="#6B7280" style={styles.staffStyles.infoIcon} />
+            <Text style={styles.staffStyles.infoLabel}>SĐT:</Text>
+            <Text style={styles.staffStyles.infoValue}>{currentUser.phoneNumber || 'Chưa cập nhật'}</Text>
+          </View>
+          <View style={styles.staffStyles.infoRow}>
+            <Ionicons name="calendar-outline" size={24} color="#6B7280" style={styles.staffStyles.infoIcon} />
+            <Text style={styles.staffStyles.infoLabel}>Ngày sinh:</Text>
+            <Text style={styles.staffStyles.infoValue}>{currentUser.dateOfBirth || 'Chưa cập nhật'}</Text>
+          </View>
+          <View style={styles.staffStyles.infoRow}>
+            <Ionicons name="person-add-outline" size={24} color="#6B7280" style={styles.staffStyles.infoIcon} />
+            <Text style={styles.staffStyles.infoLabel}>Ngày tạo:</Text>
+            <Text style={styles.staffStyles.infoValue}>{formatDate(currentUser.createdAt)}</Text>
+          </View>
         </View>
-        <View style={styles.staffStyles.infoRow}>
-          <Ionicons name="briefcase-outline" size={24} color="#6B7280" style={styles.staffStyles.infoIcon} />
-          <Text style={styles.staffStyles.infoLabel}>Vai trò:</Text>
-          <Text style={styles.staffStyles.infoValue}>{getRoleDisplayName(currentUser.role)}</Text>
-        </View>
-      </View>
 
-      <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.staffStyles.editButton}>
-        <Ionicons name="create-outline" size={22} color="#FFFFFF" />
-        <Text style={styles.staffStyles.editButtonText}>Chỉnh sửa tên hiển thị</Text>
-      </TouchableOpacity>
+        <View style={{ marginTop: 30 }}>
+          <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.staffStyles.editButton}>
+            <Ionicons name="create-outline" size={22} color="#FFFFFF" />
+            <Text style={styles.staffStyles.editButtonText}>Chỉnh sửa thông tin</Text>
+          </TouchableOpacity>
 
-      <EditProfileModal
-        isVisible={isModalVisible}
-        onClose={() => setModalVisible(false)}
-        currentName={currentUser.displayName || ''}
-        onSave={handleSaveProfile}
-      />
+          <TouchableOpacity onPress={() => setPasswordModalVisible(true)} style={[styles.staffStyles.editButton, { marginTop: 15, backgroundColor: COLORS.secondary }]}>
+            <Ionicons name="lock-closed-outline" size={22} color="#FFFFFF" />
+            <Text style={styles.staffStyles.editButtonText}>Đổi mật khẩu</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      {isModalVisible && (
+        <EditProfileModal
+          isVisible={isModalVisible}
+          onClose={() => setModalVisible(false)}
+          currentUser={{
+            displayName: currentUser.displayName || '',
+            phoneNumber: currentUser.phoneNumber || '',
+            dateOfBirth: currentUser.dateOfBirth || '',
+          }}
+          onSave={handleSaveProfile}
+        />
+      )}
+
+      {isPasswordModalVisible && (
+        <ChangePasswordModal
+          isVisible={isPasswordModalVisible}
+          onClose={() => setPasswordModalVisible(false)}
+          onSave={handleChangePassword}
+        />
+      )}
     </View>
   );
 }
-

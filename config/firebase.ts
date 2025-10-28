@@ -1,10 +1,9 @@
 // config/firebase.ts
 
-import { initializeApp } from 'firebase/app';
+import { getApp, getApps, initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-// KHÔNG CÓ BẤT KỲ IMPORT NÀO TỪ 'firebase/auth' Ở ĐÂY NỮA
-import { getAuth } from 'firebase/auth'; // Chỉ lấy hàm getAuth thông thường
 
 // Thay thế các giá trị YOUR_... bằng cấu hình Firebase thực tế của dự án bạn
 const firebaseConfig = {
@@ -18,12 +17,14 @@ const firebaseConfig = {
   measurementId: "G-4MCVZ904N0"
 };
 
+// [SỬA LỖI] Đảm bảo Firebase chỉ được khởi tạo một lần duy nhất.
+// Kiểm tra xem đã có ứng dụng nào được khởi tạo chưa. Nếu chưa, khởi tạo một cái mới.
+// Nếu rồi, sử dụng lại ứng dụng đã có. Điều này giúp ổn định kết nối khi có hot-reload.
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app); 
 
-// Lấy Auth instance TẠM THỜI (vì AuthContext sẽ khởi tạo lại nó)
 const auth = getAuth(app);
 
 export { app, auth, db, storage };

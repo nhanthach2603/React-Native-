@@ -5,35 +5,69 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Modal,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
-import { Order, OrderService } from '../../services/OrderService';
+import { Order, OrderService, OrderStatus } from '../../services/OrderService';
+import { StaffService, StaffUser } from '../../services/StaffService';
+import { COLORS, styles } from '../../styles/homeStyle';
+import { CustomPicker } from './staff';
 
-import { styles } from '../../styles/homeStyle';
+const WAREHOUSE_STATUS_SEQUENCE: OrderStatus[] = ['Assigned', 'Processing', 'Completed'];
+
+const getNextStatus = (currentStatus: OrderStatus): OrderStatus | null => {
+  const currentIndex = WAREHOUSE_STATUS_SEQUENCE.indexOf(currentStatus);
+  if (currentIndex !== -1 && currentIndex < WAREHOUSE_STATUS_SEQUENCE.length - 1) {
+    return WAREHOUSE_STATUS_SEQUENCE[currentIndex + 1];
+  }
+  return null;
+};
+
+const getActionText = (status: OrderStatus): string => {
+  switch (status) {
+    case 'Assigned': return 'Bắt đầu soạn hàng';
+    case 'Processing': return 'Hoàn thành soạn hàng';
+    default: return '';
+  }
+};
 
 export default function WarehouseScreen() {
   const insets = useSafeAreaInsets();
   const { currentUser, user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [warehouseStaff, setWarehouseStaff] = useState<StaffUser[]>([]);
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
+  const [isAssignModalVisible, setAssignModalVisible] = useState(false);
+  const [orderToAssign, setOrderToAssign] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const role = currentUser?.role; // Lấy role từ currentUser
 
   useEffect(() => {
     let unsubscribe: () => void;
     if (role === 'thukho') {
-      unsubscribe = OrderService.subscribeToPendingOrders((ordersData) => {
+      unsubscribe = OrderService.subscribeToWarehouseOrders((ordersData) => {
         setOrders(ordersData);
         setLoading(false);
-      });    } else if (role === 'nhanvienkho' && user?.uid) {
+      });
+      // Lấy danh sách nhân viên kho để phân công
+      StaffService.getStaffList(user!.uid, role, currentUser?.managerId).then(staffList => {
+        const whStaff = staffList.filter(s => s.role === 'nhanvienkho');
+        setWarehouseStaff(whStaff);
+      });
+    } else if (role === 'nhanvienkho' && user?.uid) {
       unsubscribe = OrderService.subscribeToAssignedOrders(user.uid, (ordersData) => {
         setOrders(ordersData);
         setLoading(false);
       });
     } else {
+      // Trưởng phòng cũng có thể vào xem
+      if (role === 'truongphong') {
+        unsubscribe = OrderService.subscribeToWarehouseOrders(setOrders);
+      }
       setLoading(false);
       setOrders([]);
     }
@@ -42,29 +76,57 @@ export default function WarehouseScreen() {
         unsubscribe();
       }
     };
-  }, [role, user]);
+  }, [role, user, currentUser]);
 
-  const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
+  const handleUpdateStatus = async (order: Order) => {
+    const nextStatus = getNextStatus(order.status);
+    if (!nextStatus) return;
+
     try {
-      await OrderService.updateOrder(orderId, { status: newStatus });
-      Alert.alert('Thành công', `Trạng thái đơn hàng đã được cập nhật thành "${newStatus}".`);
+      await OrderService.updateOrder(order.id, { status: nextStatus });
+      Alert.alert('Thành công', `Đã cập nhật trạng thái đơn hàng.`);
     } catch (e: any) {
       Alert.alert('Lỗi', e.message || 'Không thể cập nhật trạng thái đơn hàng.');
     }
   };
 
+  const openAssignModal = (order: Order) => {
+    setOrderToAssign(order);
+    setAssignModalVisible(true);
+  };
+
+  const handleAssignOrder = async () => {
+    if (!orderToAssign || !selectedStaffId) {
+      Alert.alert('Lỗi', 'Vui lòng chọn nhân viên để phân công.');
+      return;
+    }
+    const staffMember = warehouseStaff.find(s => s.uid === selectedStaffId);
+    if (!staffMember) return;
+
+    try {
+      await OrderService.assignOrder(orderToAssign.id, staffMember.uid, staffMember.displayName);
+      Alert.alert('Thành công', `Đã phân công đơn hàng cho ${staffMember.displayName}.`);
+      setAssignModalVisible(false);
+      setOrderToAssign(null);
+      setSelectedStaffId(null);
+    } catch (e: any) {
+      Alert.alert('Lỗi', e.message || 'Không thể phân công.');
+    }
+  };
 
   const renderOrderItem = ({ item }: { item: Order }) => (
-    <View style={styles.warehouseStyles.orderItem}>
+    <View style={styles.staffStyles.baseCard}>
       <View style={styles.warehouseStyles.orderHeader}>
-        <Text style={styles.warehouseStyles.orderId}>Mã đơn: {item.id.slice(0, 8)}</Text>
+        <Text style={styles.warehouseStyles.orderId}>ĐH: {item.id.slice(-6).toUpperCase()}</Text>
         <Text style={[styles.warehouseStyles.statusText, { color: getStatusColor(item.status) }]}>
           {item.status}
         </Text>
       </View>
-      <Text style={styles.warehouseStyles.orderInfo}>Soạn bởi: {item.staffId}</Text>
+      <Text style={styles.warehouseStyles.orderInfo}>Người tạo: {item.creatorName}</Text>
+      {item.customerName && <Text style={styles.warehouseStyles.orderInfo}>Khách hàng: {item.customerName}</Text>}
+      {item.assignedToName && <Text style={styles.warehouseStyles.orderInfo}>NV soạn: {item.assignedToName}</Text>}
       <Text style={styles.warehouseStyles.orderInfo}>
-        Ngày tạo: {new Date(item.createdAt).toLocaleDateString()}
+        Ngày tạo: {item.createdAt?.toDate().toLocaleDateString('vi-VN')}
       </Text>
       <Text style={styles.warehouseStyles.itemsTitle}>Sản phẩm:</Text>
       <FlatList
@@ -74,19 +136,31 @@ export default function WarehouseScreen() {
           <Text style={styles.warehouseStyles.itemDetail}>- {productItem.name} ({productItem.qty})</Text>
         )}
       />
-      {role === 'thukho' && item.status === 'Pending' && (
+      {/* Nút cho Thủ kho */}
+      {role === 'thukho' && item.status === 'Confirmed' && (
         <View style={styles.warehouseStyles.actionButtons}>
-          <TouchableOpacity onPress={() => updateOrderStatus(item.id, 'Shipped')} style={styles.warehouseStyles.actionButton}>
-            <Text style={styles.warehouseStyles.actionButtonText}>Xuất hàng</Text>
+          <TouchableOpacity onPress={() => openAssignModal(item)} style={styles.warehouseStyles.actionButton}>
+            <Text style={styles.warehouseStyles.actionButtonText}>Phân công</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      {/* Nút cho Nhân viên kho */}
+      {role === 'nhanvienkho' && getNextStatus(item.status) && (
+        <View style={styles.warehouseStyles.actionButtons}>
+          <TouchableOpacity onPress={() => handleUpdateStatus(item)} style={[styles.warehouseStyles.actionButton, { backgroundColor: COLORS.secondary }]}>
+            <Text style={styles.warehouseStyles.actionButtonText}>{getActionText(item.status)}</Text>
           </TouchableOpacity>
         </View>
       )}
     </View>
   );
 
-  const getStatusColor = (status: Order['status']) => {
+  const getStatusColor = (status: OrderStatus) => {
     switch (status) {
-      case 'Pending': return '#F59E0B';
+      case 'Confirmed': return '#F59E0B';
+      case 'Assigned': return '#3B82F6';
+      case 'Processing': return '#8B5CF6';
+      case 'Completed': return '#0E7490';
       case 'Shipped': return '#10B981';
       case 'Canceled': return '#EF4444';
       default: return '#6B7280';
@@ -103,7 +177,7 @@ export default function WarehouseScreen() {
 
   return (
     <View style={[styles.warehouseStyles.container, { paddingTop: insets.top + 20 }]}>
-      <Text style={styles.warehouseStyles.headerTitle}>Đơn hàng đang chờ</Text>
+      <Text style={styles.warehouseStyles.headerTitle}>Quản lý Kho</Text>
       <FlatList
         data={orders}
         keyExtractor={(item) => item.id}
@@ -114,6 +188,27 @@ export default function WarehouseScreen() {
           <Text style={styles.warehouseStyles.emptyText}>Không có đơn hàng nào.</Text>
         )}
       />
+      {/* Modal Phân công */}
+      <Modal visible={isAssignModalVisible} transparent={true} animationType="slide" onRequestClose={() => setAssignModalVisible(false)}>
+        <View style={styles.salesStyles.modalOverlay}>
+          <View style={styles.salesStyles.modalView}>
+            <Text style={styles.salesStyles.modalTitle}>Phân công đơn hàng</Text>
+            <Text style={{ marginBottom: 20 }}>Đơn hàng: {orderToAssign?.id.slice(-6).toUpperCase()}</Text>
+            <CustomPicker
+              iconName="person-outline"
+              placeholder="-- Chọn nhân viên kho --"
+              items={warehouseStaff.map(s => ({ label: s.displayName, value: s.uid }))}
+              selectedValue={selectedStaffId}
+              onValueChange={setSelectedStaffId}
+              enabled={true}
+            />
+            <View style={styles.salesStyles.modalButtons}>
+              <TouchableOpacity style={[styles.staffStyles.modalButton, styles.staffStyles.modalButtonSecondary]} onPress={() => setAssignModalVisible(false)}><Text style={styles.staffStyles.modalButtonText}>Hủy</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.staffStyles.modalButton, styles.staffStyles.modalButtonPrimary]} onPress={handleAssignOrder}><Text style={styles.staffStyles.modalButtonText}>Xác nhận</Text></TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

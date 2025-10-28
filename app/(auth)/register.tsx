@@ -1,19 +1,21 @@
 // app/(auth)/register.tsx
-import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { Link, router, Stack } from 'expo-router';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { auth, db } from '../../config/firebase';
+import { styles } from '../../styles/homeStyle';
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
@@ -23,6 +25,7 @@ export default function RegisterScreen() {
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const handleRegister = async () => {
     if (!email || !password || !displayName || !confirmPassword || !phoneNumber || !dateOfBirth) {
@@ -71,78 +74,88 @@ export default function RegisterScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Tạo tài khoản mới</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Họ và Tên"
-        value={displayName}
-        onChangeText={setDisplayName}
-        autoCapitalize="words"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Số điện thoại"
-        value={phoneNumber}
-        onChangeText={setPhoneNumber}
-        keyboardType="phone-pad"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Ngày sinh (YYYY-MM-DD)"
-        value={dateOfBirth}
-        onChangeText={setDateOfBirth}
-        autoCapitalize="none"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Mật khẩu"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Xác nhận mật khẩu"
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry
-      />
-      {loading ? (
-        <ActivityIndicator size="large" color="#10B981" />
-      ) : (
-        <TouchableOpacity style={styles.button} onPress={handleRegister}>
-          <Text style={styles.buttonText}>Đăng ký</Text>
+    <View style={[styles.authStyles.registerContainer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      {/* Ẩn thanh tiêu đề mặc định của navigator */}
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <View style={styles.authStyles.formContainer}>
+        <Text style={styles.authStyles.title}>Tạo tài khoản mới</Text>
+        <View style={styles.authStyles.inputGroup}>
+          <Ionicons name="person-outline" size={20} color="#6B7280" style={styles.authStyles.icon} />
+          <TextInput
+            style={styles.authStyles.input}
+            placeholder="Họ và Tên"
+            value={displayName}
+            onChangeText={setDisplayName}
+            autoCapitalize="words"
+          />
+        </View>
+        <View style={styles.authStyles.inputGroup}>
+          <Ionicons name="mail-outline" size={20} color="#6B7280" style={styles.authStyles.icon} />
+          <TextInput
+            style={styles.authStyles.input}
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+        </View>
+        <View style={styles.authStyles.inputGroup}>
+          <Ionicons name="call-outline" size={20} color="#6B7280" style={styles.authStyles.icon} />
+          <TextInput
+            style={styles.authStyles.input}
+            placeholder="Số điện thoại"
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+            keyboardType="phone-pad"
+          />
+        </View>
+        <View style={styles.authStyles.inputGroup}>
+          <Ionicons name="calendar-outline" size={20} color="#6B7280" style={styles.authStyles.icon} />
+          <TextInput
+            style={styles.authStyles.input}
+            placeholder="Ngày sinh (YYYY-MM-DD)"
+            value={dateOfBirth}
+            onChangeText={setDateOfBirth}
+          />
+        </View>
+        <View style={styles.authStyles.inputGroup}>
+          <Ionicons name="lock-closed-outline" size={20} color="#6B7280" style={styles.authStyles.icon} />
+          <TextInput
+            style={styles.authStyles.input}
+            placeholder="Mật khẩu"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+        </View>
+        <View style={styles.authStyles.inputGroup}>
+          <Ionicons name="lock-closed-outline" size={20} color="#6B7280" style={styles.authStyles.icon} />
+          <TextInput
+            style={styles.authStyles.input}
+            placeholder="Xác nhận mật khẩu"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+          />
+        </View>
+        <TouchableOpacity style={[styles.authStyles.button, loading && styles.authStyles.buttonDisabled]} onPress={handleRegister} disabled={loading}>
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.authStyles.buttonText}>Đăng ký</Text>
+          )}
         </TouchableOpacity>
-      )}
-      <TouchableOpacity onPress={() => router.back()}>
-        <Text style={styles.linkText}>Quay lại Đăng nhập</Text>
-      </TouchableOpacity>
+      </View>
+      <View style={styles.authStyles.loginContainer}>
+        <Text style={styles.authStyles.loginText}>Đã có tài khoản? </Text>
+        <Link href="/(auth)" asChild>
+          <TouchableOpacity>
+            <Text style={styles.authStyles.loginLink}>Đăng nhập ngay</Text>
+          </TouchableOpacity>
+        </Link>
+      </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: '#F9FAFB' },
-  title: { fontSize: 28, fontWeight: 'bold', textAlign: 'center', marginBottom: 30, color: '#1F2937' },
-  input: {
-    height: 50,
-    borderColor: '#D1D5DB',
-    borderWidth: 1,
-    borderRadius: 8,
-    marginBottom: 15,
-    paddingHorizontal: 15,
-    backgroundColor: 'white',
-  },
-  button: { backgroundColor: '#10B981', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10 },
-  buttonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-  linkText: { color: '#3B82F6', textAlign: 'center', marginTop: 20 },
-});

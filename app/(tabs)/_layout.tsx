@@ -24,8 +24,8 @@ const tabConfigs: TabConfig[] = [
   {
     name: 'warehouse',
     title: 'Kho hàng',
-    icon: 'cube-outline',
-    roles: ['thukho', 'nhanvienkho', 'truongphong'], // Trưởng phòng có thể xem kho
+    icon: 'cube-outline', // Trưởng phòng có thể xem kho, Thủ kho và NV Kho làm việc
+    roles: ['truongphong', 'thukho', 'nhanvienkho'],
   },
   {
     name: 'sales',

@@ -33,6 +33,7 @@
     "expo-system-ui": "~6.0.7",
     "expo-web-browser": "~15.0.8",
     "firebase": "^12.3.0",
+    "firebase-admin": "^13.5.0",
     "lucide-react-native": "^0.544.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -56,5 +57,18 @@
     "eslint-config-expo": "~10.0.0",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "private": true,
+  "description": "This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nhanthach2603/React-Native-.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/nhanthach2603/React-Native-/issues"
+  },
+  "homepage": "https://github.com/nhanthach2603/React-Native-#readme"
 }

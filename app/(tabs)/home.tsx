@@ -1,10 +1,9 @@
 // app/(tabs)/home.tsx
 
-import { StaffUser } from '@/services/StaffService';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'; // Thêm ScrollView
 import { useAuth, UserRole } from '../../context/AuthContext';
 import { Product, ProductService } from '../../services/ProductService'; // Import Product Service
 import { styles } from '../../styles/homeStyle';
@@ -17,6 +16,7 @@ const getRoleDisplayName = (userRole: UserRole) => { // Chấp nhận UserRole
     case 'truongphong': return 'Trưởng phòng KD/QA';
     case 'nhanvienkho': return 'Nhân viên Kho';
     case 'nhanvienkd': return 'Nhân viên Kinh doanh';
+    case 'quanlynhansu': return 'Quản lý Nhân sự';
     default: return 'Chưa được gán';
     case null: // Xử lý trường hợp role là null
       return 'Chưa được gán';
@@ -39,7 +39,7 @@ const StatCard: React.FC<StatCardProps> = ({ iconName, iconColor, number, label,
   </TouchableOpacity>
 );
 
-const renderRoleSpecificStats = (currentUser: StaffUser | null) => {
+const renderRoleSpecificStats = (currentUser: any | null) => {
   const role = currentUser?.role;
   // Logic mới: Xác định là Tổng quản lý bằng cách kiểm tra managerId là null
   if (currentUser?.managerId === null || currentUser?.role === 'quanlynhansu') {
@@ -155,12 +155,10 @@ const ManagerStats = () => (
 
 // --- Màn hình Chính ---
 export default function HomeScreen() {
-  const { user, currentUser, logout } = useAuth(); // Chỉ gọi useAuth một lần
+  const { currentUser, logout } = useAuth(); // Chỉ gọi useAuth một lần
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [searchText, setSearchText] = useState('');
   const [productLoading, setProductLoading] = useState(true);
-
-  const displayName = user?.email?.split('@')[0] || 'Khách';
   
   const roleDisplay = (currentUser?.managerId === null || currentUser?.role === 'quanlynhansu')
     ? 'Tổng Quản lý'
@@ -215,7 +213,7 @@ export default function HomeScreen() {
         
         {/* Header và Vai trò */}
         <View style={styles.homeStyles.header}>
-          <Text style={styles.homeStyles.greeting}>Xin chào, {displayName}!</Text>
+          <Text style={styles.homeStyles.greeting}>Xin chào, {currentUser?.displayName || 'bạn'}!</Text>
           <TouchableOpacity onPress={handleLogout} style={styles.homeStyles.logoutButton}>
             <Ionicons name="log-out-outline" size={28} color="#EF4444" />
           </TouchableOpacity>
@@ -245,10 +243,11 @@ export default function HomeScreen() {
         {/* Thanh tìm kiếm */}
         <View style={styles.homeStyles.searchContainer}>
           <Ionicons name="search" size={20} color="#6B7280" />
-          <TextInput
+           <TextInput
             placeholder="Tìm kiếm sản phẩm theo tên hoặc SKU..."
             placeholderTextColor="#9CA3AF"
             value={searchText}
+            style={styles.homeStyles.searchInput}
             onChangeText={setSearchText}
           />
         </View>

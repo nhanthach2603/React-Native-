@@ -22,6 +22,10 @@ export interface StaffUser {
   managerId?: string | null; // Sửa ở đây: Đồng bộ kiểu dữ liệu thành string
   createdAt?: string;
   schedule?: { [date: string]: { shift: string; note: string } };
+  phoneNumber?: string;
+  dateOfBirth?: string;
+  avatarUrl?: string;
+  hourlyRate?: number;
 }
 
 const usersCollectionRef = collection(db, 'user');
@@ -106,14 +110,14 @@ export class StaffService {
       const userData = userDoc.data() as StaffUser;
       const monthlyHours = userData.monthlyHours || 0;
       const monthlySalary = userData.monthlySalary || 0;
+      const userHourlyRate = userData.hourlyRate || 0; // Lấy mức lương theo giờ của user, mặc định là 0
 
       // Giả sử mỗi ca làm 8 tiếng và mức lương cơ bản là 50.000 VND/giờ
       const hoursToAdd = 8;
-      const hourlyRate = 50000;
 
       await updateDoc(userDocRef, {
         monthlyHours: monthlyHours + hoursToAdd,
-        monthlySalary: monthlySalary + hoursToAdd * hourlyRate,
+        monthlySalary: monthlySalary + hoursToAdd * userHourlyRate,
       });
     } else {
       throw new Error('User not found');
@@ -143,6 +147,33 @@ export class StaffService {
         [date]: { shift, note },
       };
       await updateDoc(userDocRef, { schedule: newSchedule });
+    } else {
+      throw new Error('User not found');
+    }
+  }
+
+  /**
+   * Phân công lịch làm việc hàng loạt cho nhiều ngày.
+   * @param uid UID của nhân viên
+   * @param dates Mảng các ngày cần phân công (định dạng 'YYYY-MM-DD')
+   * @param shift Ca làm việc
+   * @param note Ghi chú
+   */
+  static async assignBulkSchedule(
+    uid: string,
+    dates: string[],
+    shift: string,
+    note: string
+  ) {
+    const userDocRef = doc(db, 'user', uid);
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+      const currentSchedule = userDoc.data().schedule || {};
+      dates.forEach(date => {
+        currentSchedule[date] = { shift, note };
+      });
+      await updateDoc(userDocRef, { schedule: currentSchedule });
     } else {
       throw new Error('User not found');
     }

@@ -1,12 +1,12 @@
 // app/(tabs)/chat/room.tsx (ChatRoomScreen)
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, Image, Linking, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
+import { useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Linking, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../context/AuthContext';
 import { ChatService, IMessage } from '../../../services/ChatService';
 import { styles } from '../../../styles/homeStyle';
@@ -29,14 +29,16 @@ export default function ChatRoomScreen() {
     if (!roomId) return;
     
     const unsubscribe = ChatService.subscribeToChatMessages(roomId as string, (fetchedMessages) => {
-      const nativeMessages: Message[] = fetchedMessages.map(msg => ({
+      // [SỬA LỖI] Tạo một bản sao của mảng trước khi đảo ngược để tránh lỗi "read-only property"
+      // bằng cách sử dụng spread operator `[...]`.
+      const nativeMessages: Message[] = [...fetchedMessages].map(msg => ({
         _id: msg._id,
         text: msg.text,
         createdAt: msg.createdAt as Date,
         user: { _id: msg.user._id as string, name: msg.user.name as string },
         image: msg.image,
         file: (msg as any).file,
-      })).reverse(); 
+      })).reverse();
       
       setMessages(nativeMessages);
     });

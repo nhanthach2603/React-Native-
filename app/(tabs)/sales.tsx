@@ -1,296 +1,42 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react'; // Giữ lại React
 import {
   ActivityIndicator,
-  Button,
   FlatList,
-  Modal,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CategoryManagerModal } from '../../components/sales/CategoryManagerModal'; // Đã sửa lỗi
+import { ConfirmationModal } from '../../components/sales/ConfirmationModal'; // Đã sửa lỗi
+import { OrderEditModal } from '../../components/sales/OrderEditModal'; // Đã sửa lỗi
+import { ProductEditModal } from '../../components/sales/ProductEditModal';
 import { useAuth } from '../../context/AuthContext';
+import { Order, OrderService, OrderStatus } from '../../services/OrderService';
 import { Category, Product, ProductService } from '../../services/ProductService';
-import { styles } from '../../styles/homeStyle';
+import { StaffService, StaffUser } from '../../services/StaffService';
+import { COLORS, styles } from '../../styles/homeStyle';
 
 // --- COMPONENTS ---
-
-// Component Modal Thêm/Sửa Sản phẩm
-interface ProductEditModalProps {
-    isVisible: boolean;
-    onClose: () => void;
-    productToEdit: Product | null;
-    onSave: (data: Product | Omit<Product, 'id'>) => Promise<void>;
-    categories: Category[];
-    onShowMessage: (title: string, message: string) => void;
-}
-
-const ProductEditModal: React.FC<ProductEditModalProps> = ({ isVisible, onClose, productToEdit, onSave, categories, onShowMessage }) => {
-    const [name, setName] = useState('');
-    const [sku, setSku] = useState('');
-    const [quantity, setQuantity] = useState(0);
-    const [unit, setUnit] = useState('');
-    const [price, setPrice] = useState(0);
-    const [category, setCategory] = useState('');
-    const [loading, setLoading] = useState(false);
-const [isCategoryPickerOpen, setCategoryPickerOpen] = useState(false); // State for category picker modal
-    const { currentUser } = useAuth(); // Use currentUser from AuthContext
-    // Logic mới: Tổng quản lý (managerId=null) cũng có quyền quản lý
-    const isTopLevelManager = currentUser?.managerId === null;
-    const canManage = currentUser?.role === 'truongphong' || currentUser?.role === 'thukho' || isTopLevelManager;
-    const isEditing = !!productToEdit;
-
-    useEffect(() => {
-        if (productToEdit) {
-            setName(productToEdit.name);
-            setSku(productToEdit.sku);
-            setQuantity(productToEdit.quantity);
-            setUnit(productToEdit.unit);
-            setPrice(productToEdit.price);
-            setCategory(productToEdit.category || '');
-        } else {
-            setName(''); setSku(''); setQuantity(0); setUnit(''); setPrice(0); setCategory('');
-        }
-    }, [productToEdit]);
-
-    const handleSave = async () => {
-        if (!canManage) {
-            onShowMessage('Lỗi', 'Bạn không có quyền thực hiện thao tác này.');
-            return;
-        }
-        if (!name || !sku || !unit || price <= 0 || !category) {
-            onShowMessage('Lỗi', 'Vui lòng điền đủ thông tin và chọn Danh mục.');
-            return;
-        }
-        setLoading(true);
-        const productData = { name, sku, quantity, unit, price, category };
-
-        try {
-            if (isEditing) {
-                await onSave({ ...productData, id: productToEdit!.id });
-            } else {
-                await onSave(productData);
-            }
-            onClose();
-            onShowMessage('Thành công', `Đã ${isEditing ? 'cập nhật' : 'thêm'} sản phẩm.`);
-        } catch (e: any) {
-            onShowMessage('Lỗi', e.message || 'Không thể lưu sản phẩm.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const currentCategoryName = categories.find(c => c.id === category)?.name || 'Chọn Danh mục';
-
-    return (
-        <Modal animationType="slide" transparent={true} visible={isVisible} onRequestClose={onClose}>
-            <View style={styles.salesStyles.modalOverlay}>
-                <View style={styles.salesStyles.modalView}>
-                    <Text style={styles.salesStyles.modalTitle}>{isEditing ? 'Sửa Sản Phẩm' : 'Thêm Sản Phẩm Mới'}</Text>
-                    <TextInput style={styles.salesStyles.modalInput} placeholder="Tên sản phẩm" placeholderTextColor="#9CA3AF" value={name} onChangeText={setName} />
-                    <TextInput style={styles.salesStyles.modalInput} placeholder="Mã SKU (A4-DA-500)" placeholderTextColor="#9CA3AF" value={sku} onChangeText={setSku} />
-                    <TextInput
-                        style={styles.salesStyles.modalInput}
-                        placeholder="Số lượng tồn kho (Ví dụ: 100)"
-                        placeholderTextColor="#9CA3AF"
-                        value={quantity.toString()}
-                        onChangeText={(text) => setQuantity(parseInt(text) || 0)}
-                        keyboardType="numeric"
-                    />
-                    <TouchableOpacity
-                        style={[styles.salesStyles.modalInput, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
-                        onPress={() => setCategoryPickerOpen(true)}
-                    >
-                        <Text style={{ color: category ? '#1F2937' : '#9CA3AF' }}>
-                            {currentCategoryName}
-                        </Text>
-                        <Ionicons name="chevron-down" size={20} color="#6B7280" />
-                    </TouchableOpacity>
-                    <TextInput style={styles.salesStyles.modalInput} placeholder="Đơn vị (cái, hộp)" placeholderTextColor="#9CA3AF" value={unit} onChangeText={setUnit} />
-                    <TextInput style={styles.salesStyles.modalInput} placeholder="Giá bán (Ví dụ: 55000)" placeholderTextColor="#9CA3AF" value={price.toString()} onChangeText={(text) => setPrice(parseInt(text) || 0)} keyboardType="numeric" />
-                    <View style={styles.salesStyles.modalButtons}>
-                        <Button title="Hủy" onPress={onClose} color="#EF4444" />
-                        <Button title={loading ? "Đang xử lý..." : isEditing ? 'Lưu Thay Đổi' : 'Thêm Sản Phẩm'} onPress={handleSave} disabled={loading} color="#10B981" />
-                    </View>
-                    <Modal visible={isCategoryPickerOpen} animationType="slide" transparent={true}>
-                        <View style={styles.salesStyles.modalOverlay}>
-                            <View style={[styles.salesStyles.modalView, { height: 350 }]}>
-                                <Text style={styles.salesStyles.modalTitle}>Chọn Danh mục</Text>
-                                <FlatList
-                                    data={categories}
-                                    keyExtractor={(item) => item.id!}
-                                    renderItem={({ item }) => (
-                                        <TouchableOpacity
-                                            onPress={() => {
-                                                setCategory(item.id!);
-                                                setCategoryPickerOpen(false);
-                                            }}
-                                            style={{ padding: 10, borderBottomWidth: 1, borderBottomColor: '#EEE' }}
-                                        >
-                                            <Text>{item.name}</Text>
-                                        </TouchableOpacity>
-                                    )}
-                                />
-                                <Button title="Đóng" onPress={() => setCategoryPickerOpen(false)} />
-                            </View>
-                        </View>
-                    </Modal>
-                </View>
-            </View>
-        </Modal>
-    );
-};
-
-// Component Modal Quản lý Category
-const CategoryManagerModal: React.FC<{ isVisible: boolean; onClose: () => void; categories: Category[]; onShowMessage: (title: string, message: string, onConfirm?: () => void) => void; }> = ({ isVisible, onClose, categories, onShowMessage }) => {
-    const [newCategoryName, setNewCategoryName] = useState('');
-    const { currentUser } = useAuth(); // Lấy currentUser từ useAuth
-    const role = currentUser?.role; // Lấy role từ currentUser
-    // Logic mới: Tổng quản lý (managerId=null) cũng có quyền quản lý
-    const isTopLevelManager = currentUser?.managerId === null;
-    const canManage = role === 'truongphong' || role === 'thukho' || isTopLevelManager;
-
-    const handleAddCategory = async () => {
-        if (!canManage) {
-            onShowMessage('Lỗi', 'Bạn không có quyền thêm danh mục.');
-            return;
-        }
-        if (newCategoryName.trim() === '') return;
-        try {
-            await ProductService.addCategory(newCategoryName.trim());
-            setNewCategoryName('');
-            onShowMessage('Thành công', 'Category đã được thêm.');
-        } catch (e: any) {
-            onShowMessage('Lỗi', e.message);
-        }
-    };
-
-    const handleDeleteCategory = async (id: string, name: string) => {
-        if (!canManage) {
-            onShowMessage('Lỗi', 'Bạn không có quyền xóa danh mục.');
-            return;
-        }
-        onShowMessage(
-            'Xác nhận xóa',
-            `Bạn có chắc chắn muốn xóa Category "${name}" không?`,
-            () => {
-                ProductService.deleteCategory(id)
-                    .then(() => onShowMessage('Thành công', 'Category đã bị xóa.'))
-                    .catch((e) => onShowMessage('Lỗi Xóa', e.message));
-            }
-        );
-    };
-
-    return (
-        <Modal animationType="fade" transparent={true} visible={isVisible} onRequestClose={onClose}>
-            <View style={styles.salesStyles.modalOverlay}>
-                <View style={modalLocalStyles.categoryModalView}>
-                    {/* Header */}
-                    <View style={modalLocalStyles.modalHeader}>
-                        <Text style={modalLocalStyles.modalTitle}>Quản lý Danh mục</Text>
-                        <TouchableOpacity onPress={onClose}>
-                            <Ionicons name="close" size={28} color="#6B7280" />
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Input Thêm mới */}
-                    {canManage && (
-                        <View style={modalLocalStyles.inputGroup}>
-                            <TextInput style={modalLocalStyles.categoryInput} placeholder="Tên danh mục mới" value={newCategoryName} onChangeText={setNewCategoryName} />
-                            <TouchableOpacity onPress={handleAddCategory} style={modalLocalStyles.addButton}>
-                                <Ionicons name="add-circle" size={40} color="#10B981" />
-                            </TouchableOpacity>
-                        </View>
-                    )}
-
-                    {/* Danh sách */}
-                    <Text style={modalLocalStyles.listTitle}>Danh sách hiện có:</Text>
-                    <ScrollView style={modalLocalStyles.listContainer}>
-                        {categories.length > 0 ? (
-                            categories.map(cat => (
-                                <View key={cat.id} style={modalLocalStyles.categoryItem}>
-                                    <Text style={modalLocalStyles.categoryName}>{cat.name}</Text>
-                                    {canManage && (
-                                        <TouchableOpacity onPress={() => handleDeleteCategory(cat.id!, cat.name)} style={modalLocalStyles.deleteButton}>
-                                            <Ionicons name="trash-outline" size={24} color="#EF4444" />
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-                            ))
-                        ) : (
-                            <Text style={modalLocalStyles.emptyListText}>Không có danh mục nào.</Text>
-                        )}
-                    </ScrollView>
-
-                    {/* Nút Đóng */}
-                    <TouchableOpacity onPress={onClose} style={modalLocalStyles.closeButton}>
-                        <Text style={modalLocalStyles.closeButtonText}>Đóng</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        </Modal>
-    );
-};
-
-// Component Modal xác nhận chung (thay thế cho Alert)
-interface ConfirmationModalProps {
-  isVisible: boolean;
-  onClose: () => void;
-  title: string;
-  message: string;
-  onConfirm: () => void;
-  isSuccessModal?: boolean;
-}
-
-const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isVisible, onClose, title, message, onConfirm, isSuccessModal = false }) => {
-  return (
-    <Modal
-      animationType="fade"
-      transparent={true}
-      visible={isVisible}
-      onRequestClose={onClose}
-    >
-      <View style={styles.salesStyles.modalOverlay}>
-        <View style={styles.salesStyles.modalView}>
-          <Ionicons
-            name={isSuccessModal ? "checkmark-circle-outline" : "alert-circle-outline"}
-            size={50}
-            color={isSuccessModal ? "#10B981" : "#FFD700"}
-          />
-          <Text style={styles.salesStyles.modalTitle}>{title}</Text>
-          <Text style={{ textAlign: 'center', marginBottom: 20 }}>{message}</Text>
-          <View style={{ flexDirection: 'row', justifyContent: 'center', width: '100%' }}>
-            {isSuccessModal ? (
-              <Button title="Đóng" onPress={onClose} color="#10B981" />
-            ) : (
-              <>
-                <Button title="Hủy" onPress={onClose} color="#6B7280" />
-                <View style={{ width: 10 }} />
-                <Button title="Xác nhận" onPress={onConfirm} color="#EF4444" />
-              </>
-            )}
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-};
 
 
 // --- MÀN HÌNH SALES CHÍNH ---
 export default function SalesScreen() {
   const insets = useSafeAreaInsets();
-  const { currentUser } = useAuth(); // Lấy currentUser từ useAuth
+  const { currentUser, user } = useAuth(); // Lấy currentUser từ useAuth
   const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalVisible, setModalVisible] = useState(false);
+  const [isOrderModalVisible, setOrderModalVisible] = useState(false);
   const [isCategoryManagerVisible, setCategoryManagerVisible] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
+  const [orderToEdit, setOrderToEdit] = useState<Order | null>(null);
+  const [staffList, setStaffList] = useState<StaffUser[]>([]);
   
   const [searchText, setSearchText] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -303,8 +49,11 @@ export default function SalesScreen() {
   const [isSuccessModal, setIsSuccessModal] = useState(false);
 
   // Logic mới: Tổng quản lý (managerId=null) cũng có quyền quản lý
-  const isTopLevelManager = currentUser?.managerId === null;
+  const isTopLevelManager = currentUser?.managerId === null || currentUser?.role === 'quanlynhansu'; // Đã sửa ở lần trước
   const canManage = currentUser?.role === 'truongphong' || currentUser?.role === 'thukho' || isTopLevelManager;
+  const canCreateOrder = currentUser?.role === 'truongphong' || currentUser?.role === 'nhanvienkd' || isTopLevelManager;
+  // Khởi tạo viewMode dựa trên quyền tạo đơn hàng
+  const [viewMode, setViewMode] = useState<'products' | 'orders'>(canCreateOrder ? 'orders' : 'products'); // Sửa lỗi: Xóa khai báo trùng lặp ở trên
 
   useEffect(() => {
     const unsubscribeProducts = ProductService.subscribeToProducts((productsData) => {
@@ -314,11 +63,30 @@ export default function SalesScreen() {
     const unsubscribeCategories = ProductService.subscribeToCategories((categoriesData) => {
       setCategories(categoriesData);
     });
+
+    let unsubscribeOrders: () => void;
+    if (currentUser?.role === 'truongphong' && user?.uid) {
+      StaffService.getStaffList(user.uid, currentUser.role, currentUser.managerId).then(staff => {
+        setStaffList(staff);
+        const staffUids = staff.filter(s => s.role === 'nhanvienkd').map(s => s.uid);
+        unsubscribeOrders = OrderService.subscribeToManagerOrders(user.uid, staffUids, setOrders);
+      });
+    } else if (currentUser?.role === 'nhanvienkd' && user?.uid) {
+      unsubscribeOrders = OrderService.subscribeToSalespersonOrders(user.uid, setOrders);
+    }
+
     return () => {
       unsubscribeProducts();
       unsubscribeCategories();
+      if (unsubscribeOrders) unsubscribeOrders();
     };
-  }, [currentUser]); // Thêm currentUser vào dependency array
+  }, [currentUser, user]); // Thêm currentUser vào dependency array
+
+  // Sửa lỗi: Hàm getStatusColor bị sai cú pháp
+  const getStatusColor = (status: OrderStatus) => {
+    const colors: Record<OrderStatus, string> = { Draft: '#6B7280', Confirmed: '#F59E0B', Assigned: '#3B82F6', Processing: '#8B5CF6', Completed: '#0E7490', Shipped: '#10B981', Canceled: '#EF4444' };
+    return colors[status] || '#6B7280';
+  };
 
   const filteredProducts = products.filter(p => {
     const matchesCategory = selectedCategoryId ? p.category === selectedCategoryId : true;
@@ -347,6 +115,16 @@ export default function SalesScreen() {
     setModalVisible(false);
   };
 
+  const handleSaveOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>, orderId?: string) => {
+    if (orderId) {
+      await OrderService.updateOrder(orderId, orderData);
+      handleShowMessage('Thành công', 'Đã cập nhật đơn hàng.');
+    } else {
+      await OrderService.addOrder(orderData);
+      handleShowMessage('Thành công', 'Đã tạo đơn hàng mới.');
+    }
+  };
+
   const handleDeleteProduct = (id: string, name: string) => {
     if (!canManage) {
       handleShowMessage("Không có quyền", "Bạn không có quyền xóa sản phẩm này.");
@@ -366,6 +144,22 @@ export default function SalesScreen() {
   const handleOpenModal = (product: Product | null) => {
     setProductToEdit(product);
     setModalVisible(true);
+  };
+
+  const handleOpenOrderModal = (order: Order | null) => {
+    setOrderToEdit(order);
+    setOrderModalVisible(true);
+  };
+
+  const handleDeleteOrder = (order: Order) => {
+    if (currentUser?.role !== 'truongphong') {
+      handleShowMessage('Lỗi', 'Bạn không có quyền xóa đơn hàng.');
+      return;
+    }
+    handleShowMessage('Xác nhận xóa', `Bạn có chắc muốn xóa đơn hàng ${order.id.slice(-6).toUpperCase()}?`, async () => {
+      await OrderService.deleteOrder(order);
+      handleShowMessage('Thành công', 'Đã xóa đơn hàng.');
+    });
   };
 
   const renderProductItem = ({ item }: { item: Product }) => (
@@ -391,6 +185,30 @@ export default function SalesScreen() {
     </View>
   );
 
+  const renderOrderItem = ({ item }: { item: Order }) => (
+    <View style={styles.staffStyles.baseCard}>
+      <View style={styles.warehouseStyles.orderHeader}>
+        <Text style={styles.warehouseStyles.orderId}>ĐH: {item.id.slice(-6).toUpperCase()}</Text>
+        <Text style={[styles.warehouseStyles.statusText, { color: getStatusColor(item.status) }]}>{item.status}</Text>
+      </View>
+      <Text style={styles.warehouseStyles.orderInfo}>Người tạo: {item.creatorName}</Text>
+      <Text style={styles.warehouseStyles.orderInfo}>Ngày tạo: {item.createdAt?.toDate().toLocaleDateString('vi-VN')}</Text>
+      <Text style={styles.warehouseStyles.orderInfo}>Tổng tiền: {item.totalAmount.toLocaleString('vi-VN')} VND</Text>
+      <View style={styles.warehouseStyles.actionButtons}>
+        {(item.status === 'Draft' || item.status === 'Confirmed') && (
+          <TouchableOpacity onPress={() => handleOpenOrderModal(item)} style={[styles.warehouseStyles.actionButton, { backgroundColor: COLORS.accent, marginRight: 10 }]}>
+            <Text style={styles.warehouseStyles.actionButtonText}>Sửa</Text>
+          </TouchableOpacity>
+        )}
+        {currentUser?.role === 'truongphong' && (
+          <TouchableOpacity onPress={() => handleDeleteOrder(item)} style={[styles.warehouseStyles.actionButton, { backgroundColor: COLORS.error }]}>
+            <Text style={styles.warehouseStyles.actionButtonText}>Xóa</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+
   if (loading) {
     return (
       <View style={[styles.salesStyles.container, styles.salesStyles.loadingContainer]}>
@@ -400,66 +218,104 @@ export default function SalesScreen() {
   }
 
   return (
-    <View style={[styles.salesStyles.container, { paddingTop: insets.top + 20 }]}>
-      <View style={styles.salesStyles.header}>
-        <Text style={styles.salesStyles.headerTitle}>Quản lý Sản phẩm</Text>
-        <View style={{ flexDirection: 'row' }}>
-          {canManage && (
-            <TouchableOpacity onPress={() => setCategoryManagerVisible(true)} style={{ marginRight: 15 }}>
-              <Ionicons name="folder-open-outline" size={30} color="#F59E0B" />
-            </TouchableOpacity>
-          )}
-          {canManage && (
-            <TouchableOpacity onPress={() => handleOpenModal(null)} style={styles.salesStyles.addButton}>
-              <Ionicons name="add-circle-outline" size={30} color="#10B981" />
-            </TouchableOpacity>
-          )}
+    <> {/* Sử dụng React.Fragment để bọc nhiều phần tử */}
+      <View style={[styles.salesStyles.container, { paddingTop: insets.top + 20 }]}>
+        <View style={styles.staffStyles.viewModeContainer}>
+          <TouchableOpacity onPress={() => setViewMode('products')} style={[styles.staffStyles.viewModeButton, viewMode === 'products' && styles.staffStyles.viewModeButtonActive]}><Text style={[styles.staffStyles.viewModeText, viewMode === 'products' && styles.staffStyles.viewModeTextActive]}>Sản Phẩm</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => setViewMode('orders')} style={[styles.staffStyles.viewModeButton, viewMode === 'orders' && styles.staffStyles.viewModeButtonActive]}><Text style={[styles.staffStyles.viewModeText, viewMode === 'orders' && styles.staffStyles.viewModeTextActive]}>Đơn Hàng</Text></TouchableOpacity>
         </View>
-      </View>
-      <View style={{ marginBottom: 10 }}>
-        <TextInput
-          style={{ height: 45, backgroundColor: '#FFFFFF', borderRadius: 10, paddingHorizontal: 15, fontSize: 16, borderWidth: 1, borderColor: '#DDD' }}
-          placeholder="Tìm kiếm theo tên sản phẩm hoặc SKU..."
-          value={searchText}
-          onChangeText={setSearchText}
-        />
-      </View>
-      <View style={{ flexDirection: 'row', marginBottom: 15, alignItems: 'center' }}>
-        <Text style={{ fontWeight: '600', marginRight: 10 }}>Danh mục:</Text>
-        <ScrollView horizontal style={{ flexDirection: 'row' }} showsHorizontalScrollIndicator={false}>
-          <TouchableOpacity
-            onPress={() => setSelectedCategoryId(null)}
-            style={{ padding: 8, backgroundColor: selectedCategoryId === null ? '#10B981' : '#E5E7EB', borderRadius: 8, marginRight: 8 }}
-          >
-            <Text style={{ color: selectedCategoryId === null ? '#FFFFFF' : '#1F2937' }}>Tất cả</Text>
-          </TouchableOpacity>
-          {categories.map(cat => (
-            <TouchableOpacity
-              key={cat.id}
-              onPress={() => setSelectedCategoryId(cat.id!)}
-              style={{ padding: 8, backgroundColor: selectedCategoryId === cat.id ? '#10B981' : '#E5E7EB', borderRadius: 8, marginRight: 8 }}
-            >
-              <Text style={{ color: selectedCategoryId === cat.id ? '#FFFFFF' : '#1F2937' }}>{cat.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-      <FlatList
-        data={filteredProducts}
-        keyExtractor={(item) => item.id!}
-        renderItem={renderProductItem}
-        style={styles.salesStyles.productList}
-        contentContainerStyle={{ paddingBottom: 20 }}
-        ListEmptyComponent={() => (
-          <Text style={styles.salesStyles.emptyText}>Không tìm thấy sản phẩm nào.</Text>
+
+        {viewMode === 'products' && (
+          <>
+            <View style={styles.salesStyles.header}>
+              <Text style={styles.salesStyles.headerTitle}>Quản lý Sản phẩm</Text>
+              <View style={{ flexDirection: 'row' }}>
+                {canManage && (
+                  <TouchableOpacity onPress={() => setCategoryManagerVisible(true)} style={{ marginRight: 15 }}>
+                    <Ionicons name="folder-open-outline" size={30} color="#F59E0B" />
+                  </TouchableOpacity>
+                )}
+                {canManage && (
+                  <TouchableOpacity onPress={() => handleOpenModal(null)} style={styles.salesStyles.addButton}>
+                    <Ionicons name="add-circle-outline" size={30} color="#10B981" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+            <View style={{ marginBottom: 10 }}>
+              <TextInput
+                style={{ height: 45, backgroundColor: '#FFFFFF', borderRadius: 10, paddingHorizontal: 15, fontSize: 16, borderWidth: 1, borderColor: '#DDD' }}
+                placeholder="Tìm kiếm theo tên sản phẩm hoặc SKU..."
+                value={searchText}
+                onChangeText={setSearchText}
+              />
+            </View>
+            <View style={{ flexDirection: 'row', marginBottom: 15, alignItems: 'center' }}>
+              <Text style={{ fontWeight: '600', marginRight: 10 }}>Danh mục:</Text>
+              <ScrollView horizontal style={{ flexDirection: 'row' }} showsHorizontalScrollIndicator={false}>
+                <TouchableOpacity
+                  onPress={() => setSelectedCategoryId(null)}
+                  style={{ padding: 8, backgroundColor: selectedCategoryId === null ? '#10B981' : '#E5E7EB', borderRadius: 8, marginRight: 8 }}
+                >
+                  <Text style={{ color: selectedCategoryId === null ? '#FFFFFF' : '#1F2937' }}>Tất cả</Text>
+                </TouchableOpacity>
+                {categories.map(cat => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    onPress={() => setSelectedCategoryId(cat.id!)}
+                    style={{ padding: 8, backgroundColor: selectedCategoryId === cat.id ? '#10B981' : '#E5E7EB', borderRadius: 8, marginRight: 8 }}
+                  >
+                    <Text style={{ color: selectedCategoryId === cat.id ? '#FFFFFF' : '#1F2937' }}>{cat.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+            <FlatList
+              data={filteredProducts}
+              keyExtractor={(item) => item.id!}
+              renderItem={renderProductItem}
+              style={styles.salesStyles.productList}
+              contentContainerStyle={{ paddingBottom: 20 }}
+              ListEmptyComponent={() => (
+                <Text style={styles.salesStyles.emptyText}>Không tìm thấy sản phẩm nào.</Text>
+              )}
+            />
+          </>
         )}
-      />
+
+        {viewMode === 'orders' && (
+          <>
+            <View style={styles.salesStyles.header}>
+              <Text style={styles.salesStyles.headerTitle}>Quản lý Đơn hàng</Text>
+              {canCreateOrder && (
+                <TouchableOpacity onPress={() => handleOpenOrderModal(null)} style={styles.salesStyles.addButton}>
+                  <Ionicons name="add-circle-outline" size={30} color="#10B981" />
+                </TouchableOpacity>
+              )}
+            </View>
+            <FlatList
+              data={orders}
+              keyExtractor={item => item.id}
+              renderItem={renderOrderItem}
+              ListEmptyComponent={<Text style={styles.salesStyles.emptyText}>Chưa có đơn hàng nào.</Text>}
+            />
+          </>
+        )}
+      </View>
       <ProductEditModal
         isVisible={isModalVisible}
         onClose={() => setModalVisible(false)}
         productToEdit={productToEdit}
         onSave={handleSaveProduct}
         categories={categories}
+        onShowMessage={handleShowMessage}
+      />
+      <OrderEditModal
+        isVisible={isOrderModalVisible}
+        onClose={() => setOrderModalVisible(false)}
+        orderToEdit={orderToEdit}
+        allProducts={products}
+        onSave={handleSaveOrder}
         onShowMessage={handleShowMessage}
       />
       <CategoryManagerModal
@@ -479,105 +335,6 @@ export default function SalesScreen() {
         }}
         isSuccessModal={isSuccessModal}
       />
-    </View>
+    </>
   );
 }
-
-const modalLocalStyles = StyleSheet.create({
-  inputGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 15,
-  },
-  categoryInput: {
-    flex: 1,
-    height: 45,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    fontSize: 16,
-    marginRight: 10,
-  },
-  addButton: {
-    padding: 5,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  listTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginTop: 20,
-    marginBottom: 10,
-    textAlign: 'left',
-    width: '100%',
-  },
-  listContainer: {
-    maxHeight: 200,
-    width: '100%',
-  },
-  categoryItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  categoryName: {
-    fontSize: 16,
-    color: '#4B5563',
-    fontWeight: '500',
-  },
-  deleteButton: {
-    padding: 5,
-  },
-  emptyListText: {
-    textAlign: 'center',
-    color: '#9CA3AF',
-    marginTop: 20,
-    fontStyle: 'italic',
-  },
-  closeButton: {
-    marginTop: 30,
-    backgroundColor: '#6B7280',
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    width: '100%',
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1F2937',
-  },
-  categoryModalView: {
-    width: '90%',
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 25,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-});
