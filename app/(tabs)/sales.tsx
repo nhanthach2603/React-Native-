@@ -1,16 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Button,
-    FlatList,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Button,
+  FlatList,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
@@ -37,10 +37,11 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({ isVisible, onClose,
     const [price, setPrice] = useState(0);
     const [category, setCategory] = useState('');
     const [loading, setLoading] = useState(false);
-    const [isCategoryPickerOpen, setCategoryPickerOpen] = useState(false);
-    const { role } = useAuth();
-    const canManage = role === 'truongphong' || role === 'thukho' || role === 'quanlynansu';
-
+const [isCategoryPickerOpen, setCategoryPickerOpen] = useState(false); // State for category picker modal
+    const { currentUser } = useAuth(); // Use currentUser from AuthContext
+    // Logic mới: Tổng quản lý (managerId=null) cũng có quyền quản lý
+    const isTopLevelManager = currentUser?.managerId === null;
+    const canManage = currentUser?.role === 'truongphong' || currentUser?.role === 'thukho' || isTopLevelManager;
     const isEditing = !!productToEdit;
 
     useEffect(() => {
@@ -101,7 +102,7 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({ isVisible, onClose,
                         keyboardType="numeric"
                     />
                     <TouchableOpacity
-                        style={[styles.salesStyles.modalInput, { justifyContent: 'center', flexDirection: 'row', justifyContent: 'space-between' }]}
+                        style={[styles.salesStyles.modalInput, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
                         onPress={() => setCategoryPickerOpen(true)}
                     >
                         <Text style={{ color: category ? '#1F2937' : '#9CA3AF' }}>
@@ -145,10 +146,13 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({ isVisible, onClose,
 };
 
 // Component Modal Quản lý Category
-const CategoryManagerModal: React.FC<{ isVisible: boolean; onClose: () => void; categories: Category[]; onShowMessage: (title: string, message: string) => void; }> = ({ isVisible, onClose, categories, onShowMessage }) => {
+const CategoryManagerModal: React.FC<{ isVisible: boolean; onClose: () => void; categories: Category[]; onShowMessage: (title: string, message: string, onConfirm?: () => void) => void; }> = ({ isVisible, onClose, categories, onShowMessage }) => {
     const [newCategoryName, setNewCategoryName] = useState('');
-    const { role } = useAuth();
-    const canManage = role === 'truongphong' || role === 'thukho' || role === 'quanlynansu';
+    const { currentUser } = useAuth(); // Lấy currentUser từ useAuth
+    const role = currentUser?.role; // Lấy role từ currentUser
+    // Logic mới: Tổng quản lý (managerId=null) cũng có quyền quản lý
+    const isTopLevelManager = currentUser?.managerId === null;
+    const canManage = role === 'truongphong' || role === 'thukho' || isTopLevelManager;
 
     const handleAddCategory = async () => {
         if (!canManage) {
@@ -280,7 +284,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isVisible, onClos
 // --- MÀN HÌNH SALES CHÍNH ---
 export default function SalesScreen() {
   const insets = useSafeAreaInsets();
-  const { role } = useAuth();
+  const { currentUser } = useAuth(); // Lấy currentUser từ useAuth
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -298,7 +302,9 @@ export default function SalesScreen() {
   const [confirmationAction, setConfirmationAction] = useState<(() => void) | null>(null);
   const [isSuccessModal, setIsSuccessModal] = useState(false);
 
-  const canManage = role === 'truongphong' || role === 'thukho' || role === 'quanlynansu';
+  // Logic mới: Tổng quản lý (managerId=null) cũng có quyền quản lý
+  const isTopLevelManager = currentUser?.managerId === null;
+  const canManage = currentUser?.role === 'truongphong' || currentUser?.role === 'thukho' || isTopLevelManager;
 
   useEffect(() => {
     const unsubscribeProducts = ProductService.subscribeToProducts((productsData) => {
@@ -312,7 +318,7 @@ export default function SalesScreen() {
       unsubscribeProducts();
       unsubscribeCategories();
     };
-  }, [role]);
+  }, [currentUser]); // Thêm currentUser vào dependency array
 
   const filteredProducts = products.filter(p => {
     const matchesCategory = selectedCategoryId ? p.category === selectedCategoryId : true;

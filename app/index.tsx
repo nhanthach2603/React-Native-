@@ -2,26 +2,26 @@
 
 import { router } from 'expo-router';
 import { useEffect } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from '../context/AuthContext';
-import { View, ActivityIndicator } from 'react-native';
 import { styles } from '../styles/homeStyle';
 
 export default function RootIndex() {
-  const { user, role, loading } = useAuth();
-  
-  const isAuthenticated = !!user && !!role && role !== 'unassigned' && role !== 'error';
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     if (!loading) {
-      if (isAuthenticated) {
-        // Chuyển hướng người dùng đã xác thực đến màn hình chính
+      // Sửa logic: Chỉ cần kiểm tra xem người dùng đã đăng nhập hay chưa (user object có tồn tại không).
+      // Việc chuyển hướng dựa trên vai trò sẽ được xử lý bên trong (tabs).
+      if (user) {
+        // Nếu đã đăng nhập, chuyển đến khu vực chính của ứng dụng.
         router.replace('/(tabs)/home');
       } else {
         // Chuyển hướng người dùng chưa đăng nhập đến màn hình Auth
-        router.replace('../(auth)/index');
+        router.replace('/(auth)');
       }
     }
-  }, [loading, isAuthenticated]);
+  }, [loading, user]); // Thay đổi dependency thành `user`
 
   // Hiển thị loading trong khi chờ Auth Context xác định trạng thái
   if (loading) {

@@ -1,9 +1,9 @@
 // app/_layout.tsx
 
-import { SplashScreen, Stack, router } from 'expo-router';
+import { SplashScreen, Stack } from 'expo-router';
 import { useEffect } from 'react';
-import { AuthProvider, useAuth } from '../context/AuthContext'; 
-import { LogBox, View, ActivityIndicator } from 'react-native';
+import { ActivityIndicator, LogBox, View } from 'react-native';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 import { styles } from '../styles/homeStyle';
 
 LogBox.ignoreLogs([
@@ -11,7 +11,7 @@ LogBox.ignoreLogs([
 ]);
 
 function RootLayoutNav() {
-  const { user, loading, role } = useAuth();
+  const { loading } = useAuth();
   
   const loaded = true; 
   const error = null;

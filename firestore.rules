@@ -1,0 +1,113 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- HELPER FUNCTIONS ---
+    // Hàm kiểm tra xem người dùng đã đăng nhập hay chưa
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Hàm lấy dữ liệu của người dùng đang thực hiện yêu cầu từ collection 'user'
+    function getRequestingUserData() {
+      return get(/databases/$(database)/documents/user/$(request.auth.uid)).data;
+    }
+
+    // Hàm kiểm tra vai trò của người dùng
+    function hasRole(role) {
+      return isSignedIn() && getRequestingUserData().role == role;
+    }
+
+    // Hàm kiểm tra xem người dùng có phải là Tổng Quản lý (quanlynhansu) hay không
+    function isTopLevelManager() {
+      // Không cần gọi getRequestingUserData() ở đây vì nó có thể gây ra vòng lặp
+      // khi kiểm tra quyền tạo user mới (user chưa tồn tại).
+      // Thay vào đó, kiểm tra trực tiếp trên dữ liệu đang có (resource.data) hoặc dữ liệu yêu cầu (request.resource.data) khi cần.
+      return isSignedIn() && getRequestingUserData().role == 'quanlynhansu';
+    }
+
+    // Hàm kiểm tra xem người dùng có phải là quản lý cấp trung (Trưởng phòng, Thủ kho) hay không
+    function isMidLevelManager() {
+      let userRole = getRequestingUserData().role;
+      return isSignedIn() && (userRole == 'truongphong' || userRole == 'thukho');
+    }
+
+    // --- COLLECTION: user ---
+    // Quy tắc cho collection 'user'
+    match /user/{userId} {
+      
+      // CREATE:
+      // - Tổng Quản lý có thể tạo user mới.
+      // - Hoặc, một người dùng mới có thể tự tạo document cho chính mình
+      //   với vai trò mặc định là 'unassigned'.
+      allow create: if isTopLevelManager() ||
+                      (request.auth.uid == userId && request.resource.data.role == 'unassigned');
+
+      // READ: 
+      // - Mọi người dùng đã đăng nhập đều có thể đọc thông tin của người khác (để xem danh sách, chat, etc.)
+      // - Cần thiết cho các chức năng như getStaffList, getManagers.
+      allow read: if isSignedIn();
+
+      // UPDATE:
+      // - Tổng Quản lý có thể cập nhật bất kỳ user nào.
+      // - Người dùng thường chỉ có thể cập nhật thông tin của chính mình (`userId == request.auth.uid`).
+      //   VÀ họ không được phép tự thay đổi `role` hoặc `managerId`.
+      allow update: if isTopLevelManager() || 
+                      ( isSignedIn() &&
+                        userId == request.auth.uid &&
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName'])
+                      );
+
+      // DELETE: Chỉ Tổng Quản lý mới được xóa user.
+      allow delete: if isTopLevelManager();
+    }
+
+    // --- COLLECTION: products ---
+    // Quy tắc cho collection 'products'
+    match /products/{productId} {
+      
+      // READ: Mọi người dùng đã đăng nhập đều có thể xem sản phẩm.
+      allow read: if isSignedIn();
+      
+      // CREATE, DELETE: Chỉ Trưởng phòng (truongphong) mới có quyền thêm/xóa sản phẩm.
+      allow create, delete: if hasRole('truongphong');
+      
+      // UPDATE:
+      // - Trưởng phòng (truongphong) có thể cập nhật tất cả các trường.
+      // - Thủ kho (thukho) chỉ được phép cập nhật trường 'quantity'.
+      allow update: if hasRole('truongphong') || 
+                      (hasRole('thukho') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['quantity']));
+    }
+    
+    // --- COLLECTION: categories ---
+    // Quy tắc cho collection 'categories'
+    match /categories/{categoryId} {
+      
+      // READ: Mọi người dùng đã đăng nhập đều có thể xem danh mục.
+      allow read: if isSignedIn();
+      
+      // CREATE, UPDATE, DELETE: Chỉ Trưởng phòng (truongphong) mới có quyền quản lý danh mục.
+      allow create, update, delete: if hasRole('truongphong');
+    }
+    
+    // --- COLLECTION: orders ---
+    // Quy tắc cho collection 'orders'
+    match /orders/{orderId} {
+      
+      // READ: Mọi người dùng đã đăng nhập đều có thể xem đơn hàng.
+      // Logic xem đơn hàng của ai sẽ được xử lý ở phía client (ví dụ: query theo staffId).
+      allow read: if isSignedIn();
+      
+      // CREATE: Chỉ Nhân viên kinh doanh (nhanvienkd) và Trưởng phòng (truongphong) được tạo đơn hàng.
+      allow create: if hasRole('nhanvienkd') || hasRole('truongphong');
+      
+      // UPDATE:
+      // - Trưởng phòng (truongphong) và Nhân viên kinh doanh (nhanvienkd) có thể sửa đơn hàng.
+      // - Thủ kho (thukho) có thể sửa đơn hàng (để cập nhật trạng thái hoặc gán nhân viên).
+      allow update: if hasRole('truongphong') || hasRole('nhanvienkd') || hasRole('thukho');
+      
+      // DELETE: Chỉ Trưởng phòng (truongphong) mới được xóa đơn hàng.
+      allow delete: if hasRole('truongphong');
+    }
+  }
+}

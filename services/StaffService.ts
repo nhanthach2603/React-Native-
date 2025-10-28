@@ -6,24 +6,20 @@ import {
   getDoc,
   getDocs,
   query,
-  setDoc,
   updateDoc,
   where
 } from 'firebase/firestore';
 
-import {
-  createUserWithEmailAndPassword,
-  getAuth
-} from 'firebase/auth'; // Import từ firebase/auth
-import { db } from '../config/firebase';
+import { db } from '../config/firebase'; // Đảm bảo app được export từ firebase.ts
+import { UserRole } from '../context/AuthContext';
 export interface StaffUser {
   uid: string;
   email: string;
   displayName: string;
-  role: string;
+  role: UserRole;
   monthlyHours: number;
   monthlySalary: number;
-  managerId?: number | null;
+  managerId?: string | null; // Sửa ở đây: Đồng bộ kiểu dữ liệu thành string
   createdAt?: string;
   schedule?: { [date: string]: { shift: string; note: string } };
 }
@@ -31,66 +27,69 @@ export interface StaffUser {
 const usersCollectionRef = collection(db, 'user');
 
 export class StaffService {
- // Sửa đổi trong StaffService.tsx
+  // Sửa đổi trong StaffService.ts: Thêm managerId của người dùng hiện tại để xác định quyền
+  static async getStaffList(
+    currentUserUid: string,
+    currentUserRole: UserRole,
+    currentUserManagerId: string | null | undefined
+  ): Promise<StaffUser[]> {
+    if (!currentUserUid || !currentUserRole) {
+      return [];
+    }
 
-static async getStaffList(userRole: string | null, managerId: string | null): Promise<StaffUser[]> {
-  let staff: StaffUser[] = [];
+    // [SỬA LỖI] Xác định Tổng quản lý một cách chính xác bằng cách kiểm tra managerId === null.
+    // Điều này tránh nhầm lẫn vai trò 'unassigned' với Tổng quản lý.
+    const isTopLevelManager = currentUserManagerId === null || currentUserRole === 'quanlynhansu';
+
+    if (isTopLevelManager) {
+      // [SỬA LỖI] Tổng quản lý sẽ thấy TẤT CẢ người dùng trong hệ thống.
+      const allUsersQuery = query(usersCollectionRef);
+      const snapshot = await getDocs(allUsersQuery);
+      // Lọc bỏ chính người quản lý ra khỏi danh sách
+      return snapshot.docs
+        .map(doc => ({ uid: doc.id, ...doc.data() } as StaffUser))
+        .filter(user => user.uid !== currentUserUid);
+    }
+    
+    if (currentUserRole === 'truongphong' || currentUserRole === 'thukho') {
+      // TRƯỜNG HỢP 2: QUẢN LÝ CẤP TRUNG (truongphong, thukho)
+      // [SỬA LỖI] Lấy nhân viên có managerId là UID của quản lý này, VÀ những người dùng chưa được phân công.
+      const staffQuery = query(usersCollectionRef, where('managerId', '==', currentUserUid));
+      const unassignedQuery = query(usersCollectionRef, where('role', '==', 'unassigned'));
   
-  if (userRole === 'quanlynansu') {
-    const q = query(usersCollectionRef); 
-    const snapshot = await getDocs(q);
-    staff = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })) as StaffUser[];
-  } else if (userRole === 'truongphong' || userRole === 'thukho') {
-    const q = query(usersCollectionRef, where('managerId', '==', managerId));
-    const snapshot = await getDocs(q);
-    staff = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })) as StaffUser[];
-  }
-  // Trường hợp không có vai trò nào khớp, staff sẽ là mảng rỗng đã được khởi tạo
+      const [staffSnapshot, unassignedSnapshot] = await Promise.all([getDocs(staffQuery), getDocs(unassignedQuery)]);
   
-  return staff;
-}
-  static async addStaff(
-    email: string,
-    password: string,
-    displayName: string,
-    role: string,
-    managerId: number | null
-  ): Promise<StaffUser> {
-    const auth = getAuth();
-    const userCredential = await createUserWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
-    const uid = userCredential.user.uid;
+      const staffList = staffSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as StaffUser));
+      const unassignedList = unassignedSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as StaffUser));
+      
+      // Gộp 2 danh sách lại
+      return [...staffList, ...unassignedList];
+    }
 
-    const newStaff: StaffUser = {
-      uid,
-      email,
-      displayName,
-      role,
-      managerId,
-      monthlyHours: 0,
-      monthlySalary: 0,
-      schedule: {},
-      createdAt: new Date().toISOString(),
-    };
-
-    await setDoc(doc(db, 'user', uid), newStaff);
-    return newStaff;
+    return []; // [SỬA LỖI] Luôn trả về một mảng rỗng nếu không có điều kiện nào khớp.
   }
 
+  /**
+   * Lấy danh sách tất cả người dùng có vai trò là quản lý (Trưởng phòng, Thủ kho)
+   */
+  static async getManagers(): Promise<StaffUser[]> { 
+    // Lấy tất cả những người có vai trò có thể quản lý để hiển thị trong Picker
+    const q = query(usersCollectionRef, where('role', 'in', ['truongphong', 'thukho']));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })) as StaffUser[];
+  }
+
+  
   static async updateStaff(uid: string, data: Partial<StaffUser>) {
     await updateDoc(doc(db, 'user', uid), data);
   }
 
   static async deleteStaff(uid: string) {
-    try {
-      await deleteDoc(doc(db, 'user', uid));
-    } catch (e: any) {
-      console.error('LỖI KHI XÓA NHÂN VIÊN:', e);
-      throw new Error(`Không thể xóa nhân viên. Lỗi Rules: ${e.code || 'UNKNOWN'}`);
-    }
+    // [THAY ĐỔI] Xóa trực tiếp document người dùng từ Firestore.
+    // LƯU Ý: Hành động này KHÔNG xóa tài khoản khỏi Firebase Authentication.
+    // Người dùng vẫn có thể đăng nhập nhưng sẽ không có quyền truy cập.
+    const userDocRef = doc(db, 'user', uid);
+    await deleteDoc(userDocRef);
   }
 
   /**

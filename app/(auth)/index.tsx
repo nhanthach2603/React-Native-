@@ -1,11 +1,11 @@
 // app/(auth)/index.tsx
 
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import { useAuth } from '../../context/AuthContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router'; // Import router
+import { Link, router } from 'expo-router'; // Import Link và router
+import React, { useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../context/AuthContext';
 
 export default function LoginScreen() {
   const { login, loading } = useAuth();
@@ -110,7 +110,14 @@ export default function LoginScreen() {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.note}>Ứng dụng này yêu cầu tài khoản được cấp quyền.</Text>
+      <View style={styles.registerContainer}>
+        <Text style={styles.registerText}>Chưa có tài khoản? </Text>
+        <Link href="/register" asChild>
+          <TouchableOpacity>
+            <Text style={styles.registerLink}>Đăng ký ngay</Text>
+          </TouchableOpacity>
+        </Link>
+      </View>
     </View>
   );
 }
@@ -197,5 +204,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9CA3AF',
     textAlign: 'center',
-  }
+  },
+  registerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 40,
+  },
+  registerText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  registerLink: {
+    fontSize: 14,
+    color: '#10B981',
+    fontWeight: 'bold',
+  },
 });

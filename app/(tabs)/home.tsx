@@ -1,24 +1,25 @@
 // app/(tabs)/home.tsx
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, FlatList, TextInput, ActivityIndicator } from 'react-native';
-import { useAuth, UserRole } from '../../context/AuthContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StaffUser } from '@/services/StaffService';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { styles } from '../../styles/homeStyle';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAuth, UserRole } from '../../context/AuthContext';
 import { Product, ProductService } from '../../services/ProductService'; // Import Product Service
+import { styles } from '../../styles/homeStyle';
 
 // --- HELPER FUNCTIONS ---
 
-const getRoleDisplayName = (userRole: string) => {
+const getRoleDisplayName = (userRole: UserRole) => { // Chấp nhận UserRole
   switch (userRole) {
     case 'thukho': return 'Thủ kho';
     case 'truongphong': return 'Trưởng phòng KD/QA';
     case 'nhanvienkho': return 'Nhân viên Kho';
     case 'nhanvienkd': return 'Nhân viên Kinh doanh';
-    case 'quanlynansu': return 'Quản lý Nhân sự';
     default: return 'Chưa được gán';
+    case null: // Xử lý trường hợp role là null
+      return 'Chưa được gán';
   }
 };
 
@@ -38,7 +39,13 @@ const StatCard: React.FC<StatCardProps> = ({ iconName, iconColor, number, label,
   </TouchableOpacity>
 );
 
-const renderRoleSpecificStats = (role: UserRole) => {
+const renderRoleSpecificStats = (currentUser: StaffUser | null) => {
+  const role = currentUser?.role;
+  // Logic mới: Xác định là Tổng quản lý bằng cách kiểm tra managerId là null
+  if (currentUser?.managerId === null || currentUser?.role === 'quanlynhansu') {
+    // Trả về giao diện cho Tổng quản lý
+    return <ManagerStats />;
+  }
   // ... (Logic renderRoleSpecificStats giữ nguyên)
   switch (role) {
     case 'thukho':
@@ -117,25 +124,6 @@ const renderRoleSpecificStats = (role: UserRole) => {
           />
         </View>
       );
-    case 'quanlynansu':
-      return (
-        <View style={styles.homeStyles.statContainer}>
-          <StatCard
-            iconName="calendar-outline"
-            iconColor="#F59E0B"
-            number="Xem"
-            label="Xếp lịch làm"
-            onPress={() => router.navigate('/(tabs)/staff')}
-          />
-          <StatCard
-            iconName="time-outline"
-            iconColor="#3B82F6"
-            number="Tính công"
-            label="Giờ làm tháng này"
-            onPress={() => router.navigate('/(tabs)/staff')}
-          />
-        </View>
-      );
     default:
       return (
         <View style={styles.homeStyles.statContainer}>
@@ -145,17 +133,40 @@ const renderRoleSpecificStats = (role: UserRole) => {
   }
 };
 
+// Component riêng cho thống kê của Quản lý/Tổng Quản lý
+const ManagerStats = () => (
+  <View style={styles.homeStyles.statContainer}>
+    <StatCard
+      iconName="calendar-outline"
+      iconColor="#F59E0B"
+      number="Xem"
+      label="Xếp lịch làm"
+      onPress={() => router.navigate('/(tabs)/staff')}
+    />
+    <StatCard
+      iconName="time-outline"
+      iconColor="#3B82F6"
+      number="Tính công"
+      label="Giờ làm tháng này"
+      onPress={() => router.navigate('/(tabs)/staff')}
+    />
+  </View>
+);
+
 // --- Màn hình Chính ---
 export default function HomeScreen() {
-  const { user, role, logout } = useAuth();
-  const insets = useSafeAreaInsets();
-  
+  const { user, currentUser, logout } = useAuth(); // Chỉ gọi useAuth một lần
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [searchText, setSearchText] = useState('');
   const [productLoading, setProductLoading] = useState(true);
 
   const displayName = user?.email?.split('@')[0] || 'Khách';
-  const roleDisplay = getRoleDisplayName(role || 'unassigned');
+  
+  const roleDisplay = (currentUser?.managerId === null || currentUser?.role === 'quanlynhansu')
+    ? 'Tổng Quản lý'
+    : (currentUser?.role === 'truongphong' || currentUser?.role === 'thukho')
+      ? 'Quản lý'
+      : getRoleDisplayName(currentUser?.role ?? null);
 
   // Lắng nghe dữ liệu sản phẩm real-time
   useEffect(() => {
@@ -196,8 +207,8 @@ export default function HomeScreen() {
 
   return (
     <ScrollView 
-        style={styles.homeStyles.scrollContainer} 
-        contentContainerStyle={{paddingTop: insets.top + 10, paddingBottom: insets.bottom + 20}}
+        style={styles.homeStyles.scrollContainer}
+        contentContainerStyle={{paddingTop: 40, paddingBottom: 40}}
         keyboardShouldPersistTaps="handled" // Giúp bàn phím không làm mất sự kiện bấm
     >
       <View style={styles.homeStyles.container}>
@@ -210,19 +221,21 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.homeStyles.roleCard}>
-          <Ionicons name="person-circle-outline" size={60} color="#3B82F6" />
-          <View style={styles.homeStyles.roleInfo}>
-              <Text style={styles.homeStyles.roleLabel}>Vai trò hiện tại:</Text>
-              <Text style={styles.homeStyles.roleText}>{roleDisplay}</Text>
+        <TouchableOpacity onPress={() => router.push('/profile')}>
+          <View style={styles.homeStyles.roleCard}>
+            <Ionicons name="person-circle-outline" size={60} color="#3B82F6" />
+            <View style={styles.homeStyles.roleInfo}>
+                <Text style={styles.homeStyles.roleLabel}>Vai trò hiện tại:</Text>
+                <Text style={styles.homeStyles.roleText}>{roleDisplay}</Text>
+            </View>
           </View>
-        </View>
+        </TouchableOpacity>
 
         <Text style={styles.homeStyles.sectionTitle}>Thông tin Tổng quan</Text>
-        {renderRoleSpecificStats(role)}
+        {renderRoleSpecificStats(currentUser)}
         
         <Text style={[styles.homeStyles.sectionTitle, {marginTop: 30}]}>Thông báo & Tồn kho</Text>
-        
+
         {/* Thẻ thông báo */}
         <View style={styles.homeStyles.notificationCard}>
             <Ionicons name="notifications-outline" size={24} color="#F59E0B" />
@@ -230,7 +243,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Thanh tìm kiếm */}
-        <View style={styles.homeStyles.statContainer}>
+        <View style={styles.homeStyles.searchContainer}>
           <Ionicons name="search" size={20} color="#6B7280" />
           <TextInput
             placeholder="Tìm kiếm sản phẩm theo tên hoặc SKU..."
@@ -250,7 +263,7 @@ export default function HomeScreen() {
         ) : (
             <FlatList
                 data={filteredProducts.slice(0, 5)} // Chỉ hiển thị tối đa 5 kết quả đầu tiên trên Home Screen
-                keyExtractor={item => item.id}
+                keyExtractor={item => item.id!}
                 renderItem={renderProductItem}
                 scrollEnabled={false} // Tắt cuộn của FlatList để nó cuộn cùng ScrollView cha
                 ListEmptyComponent={() => (

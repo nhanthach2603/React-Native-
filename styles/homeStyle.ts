@@ -167,6 +167,19 @@ export const styles = {
       fontSize: 16,
       color: '#1F2937',
     },
+    modalPicker: {
+      width: '100%',
+      height: 50, // Đảm bảo chiều cao phù hợp
+      color: '#1F2937',
+    },
+    modalLabel: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#333',
+      marginBottom: 8,
+      alignSelf: 'flex-start', // Căn chỉnh theo ý muốn
+      marginTop: 10,
+    },
   }),
 
   // Styles for Sales Screen (Quản lý Sản phẩm)
@@ -285,6 +298,21 @@ export const styles = {
       width: '100%',
       marginTop: 20,
     },
+    pickerContainer: {
+      borderWidth: 1,
+      borderColor: '#DDD',
+      borderRadius: 8,
+      marginBottom: 15,
+      overflow: 'hidden', // Đảm bảo Picker không tràn ra ngoài
+      backgroundColor: '#F3F4F6',
+      height: 50, // Chiều cao cố định cho Picker
+      justifyContent: 'center',
+    },
+    modalPicker: {
+      width: '100%',
+      height: 50, // Đảm bảo chiều cao phù hợp
+      color: '#1F2937',
+    },
   }),
 
   // Styles for Warehouse Screen (Quản lý Kho/Đơn hàng)
@@ -508,6 +536,87 @@ export const styles = {
       shadowRadius: 4,
       elevation: 3,
     },
+    modalLabel: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#333',
+      marginBottom: 8,
+      alignSelf: 'flex-start', // Căn chỉnh theo ý muốn
+      marginTop: 10,
+    },
+    checkInButton: {
+      marginTop: 20,
+      backgroundColor: '#10B981',
+      paddingVertical: 12,
+      paddingHorizontal: 30,
+      borderRadius: 10,
+      alignSelf: 'center', // Canh giữa nút
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 4,
+    },
+    checkInButtonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+    staffInfoCard: { // Renamed to avoid duplicate key
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    marginHorizontal: 20,
+    marginTop: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  infoIcon: {
+    marginRight: 15,
+  },
+  infoLabel: {
+    fontSize: 16,
+    color: '#374151',
+    fontWeight: '600',
+  },
+  infoValue: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginLeft: 8,
+    flex: 1, // Giúp text tự động xuống dòng nếu quá dài
+    textAlign: 'right', // Căn phải cho đẹp
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#10B981',
+    marginHorizontal: 20,
+    marginTop: 30,
+    paddingVertical: 15,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  editButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
   }),
 
   // Styles for Chat Screen

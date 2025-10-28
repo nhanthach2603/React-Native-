@@ -1,26 +1,26 @@
 // app/(tabs)/warehouse.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
   ActivityIndicator,
   Alert,
+  FlatList,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { Order, OrderService } from '../../services/OrderService';
-import { UserRole } from '../../context/AuthContext';
+
 import { styles } from '../../styles/homeStyle';
 
 export default function WarehouseScreen() {
   const insets = useSafeAreaInsets();
-  const { role, user } = useAuth();
+  const { currentUser, user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const role = currentUser?.role; // Lấy role từ currentUser
 
   useEffect(() => {
     let unsubscribe: () => void;
@@ -28,8 +28,7 @@ export default function WarehouseScreen() {
       unsubscribe = OrderService.subscribeToPendingOrders((ordersData) => {
         setOrders(ordersData);
         setLoading(false);
-      });
-    } else if (role === 'nhanvienkho' && user?.uid) {
+      });    } else if (role === 'nhanvienkho' && user?.uid) {
       unsubscribe = OrderService.subscribeToAssignedOrders(user.uid, (ordersData) => {
         setOrders(ordersData);
         setLoading(false);
@@ -49,10 +48,11 @@ export default function WarehouseScreen() {
     try {
       await OrderService.updateOrder(orderId, { status: newStatus });
       Alert.alert('Thành công', `Trạng thái đơn hàng đã được cập nhật thành "${newStatus}".`);
-    } catch (e) {
-      Alert.alert('Lỗi', 'Không thể cập nhật trạng thái đơn hàng.');
+    } catch (e: any) {
+      Alert.alert('Lỗi', e.message || 'Không thể cập nhật trạng thái đơn hàng.');
     }
   };
+
 
   const renderOrderItem = ({ item }: { item: Order }) => (
     <View style={styles.warehouseStyles.orderItem}>
@@ -62,9 +62,7 @@ export default function WarehouseScreen() {
           {item.status}
         </Text>
       </View>
-      <Text style={styles.warehouseStyles.orderInfo}>
-        Soạn bởi: {item.staffId}
-      </Text>
+      <Text style={styles.warehouseStyles.orderInfo}>Soạn bởi: {item.staffId}</Text>
       <Text style={styles.warehouseStyles.orderInfo}>
         Ngày tạo: {new Date(item.createdAt).toLocaleDateString()}
       </Text>

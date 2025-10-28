@@ -18,10 +18,9 @@ import {
 import { Calendar } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { db } from '../../config/firebase';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, UserRole } from '../../context/AuthContext';
 import { StaffService, StaffUser } from '../../services/StaffService';
 import { styles } from '../../styles/homeStyle';
-
 interface CalendarDay {
   dateString: string;
   day: number;
@@ -29,7 +28,7 @@ interface CalendarDay {
   year: number;
 }
 
-const getRoleDisplayName = (userRole: string) => {
+const getRoleDisplayName = (userRole: UserRole) => {
   switch (userRole) {
     case 'thukho':
       return 'Thủ kho';
@@ -39,68 +38,77 @@ const getRoleDisplayName = (userRole: string) => {
       return 'Nhân viên Kho';
     case 'nhanvienkd':
       return 'Nhân viên Kinh doanh';
-    case 'quanlynansu':
+    case 'quanlynhansu': // Thêm role này
       return 'Quản lý Nhân sự';
+    case null:
+    case 'unassigned':
     default:
       return 'Chưa được gán';
   }
 };
 
 const ROLES = [
+  { label: 'Quản lý Nhân sự', value: 'quanlynhansu' }, // Thêm role này
   { label: 'Thủ kho', value: 'thukho' },
   { label: 'Trưởng phòng KD/QA', value: 'truongphong' },
   { label: 'Nhân viên Kho', value: 'nhanvienkho' },
   { label: 'Nhân viên Kinh doanh', value: 'nhanvienkd' },
-  { label: 'Quản lý Nhân sự', value: 'quanlynansu' },
 ];
 
 interface StaffModalProps {
   isVisible: boolean;
   onClose: () => void;
   staffToEdit: StaffUser | null;
-  onSave: (data: StaffUser) => void;
+  onSave: (data: Partial<StaffUser>) => void;
+  managers: StaffUser[]; // Thêm prop để nhận danh sách quản lý
 }
 
-const StaffModal: React.FC<StaffModalProps> = ({ isVisible, onClose, staffToEdit, onSave }) => {
+const StaffModal: React.FC<StaffModalProps> = ({ isVisible, onClose, staffToEdit, onSave, managers }) => {
+  const { currentUser } = useAuth(); // [SỬA ĐỔI] Lấy currentUser từ AuthContext
+  
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [role, setRole] = useState('');
+  const [role, setRole] = useState<UserRole>('unassigned');
   const [managerId, setManagerId] = useState<string>('');
+
+  // [SỬA ĐỔI] Biến để kiểm tra quyền sửa role/managerId
+  const canEditSensitiveFields = currentUser?.role === 'quanlynhansu'; 
 
   useEffect(() => {
     if (staffToEdit) {
       setEmail(staffToEdit.email);
       setDisplayName(staffToEdit.displayName);
-      setRole(staffToEdit.role);
-      setManagerId(staffToEdit.managerId ? staffToEdit.managerId.toString() : '');
+      setRole(staffToEdit.role as UserRole || 'unassigned');
+      const initialManagerId = staffToEdit.managerId;
+      setManagerId(initialManagerId && initialManagerId !== 'new' ? initialManagerId : '');
+
     } else {
       setEmail('');
       setDisplayName('');
-      setRole('');
-      setManagerId('');
+      setRole('unassigned');
+      setManagerId('new');
     }
   }, [staffToEdit]);
 
-  const handleSave = async () => {
-    if (!email || !displayName || !role) {
-      Alert.alert('Lỗi', 'Vui lòng điền đủ thông tin.');
+   const handleSave = async () => {
+    if (!email || !displayName) { // Bỏ kiểm tra !role vì nó có thể là 'unassigned'
+      Alert.alert('Lỗi', 'Vui lòng điền đủ Tên hiển thị.');
       return;
     }
 
-    const numericManagerId = managerId ? parseInt(managerId) : null;
-
-    const data = {
-      uid: staffToEdit?.uid || '',
-      email,
+    // [SỬA LỖI] Bắt đầu với dữ liệu hiện có của người dùng để tránh xóa các trường không có trong form.
+    const data: Partial<StaffUser> = {
+      ...staffToEdit,
       displayName,
-      role,
-      monthlyHours: staffToEdit?.monthlyHours || 0,
-      monthlySalary: staffToEdit?.monthlySalary || 0,
-      managerId: numericManagerId,
-      ...staffToEdit
     };
 
-    onSave(data as StaffUser);
+    // CHỈ thêm/cập nhật role và managerId vào payload nếu người dùng có quyền (quanlynhansu)
+    if (canEditSensitiveFields) {
+      data.role = role;
+      // Nếu managerId là chuỗi rỗng (Picker "Không có"), lưu giá trị null vào Firestore.
+      data.managerId = managerId === '' ? null : managerId;
+    }
+    onSave(data);
     onClose();
   };
 
@@ -109,28 +117,59 @@ const StaffModal: React.FC<StaffModalProps> = ({ isVisible, onClose, staffToEdit
       <View style={styles.salesStyles.modalOverlay}>
         <View style={styles.salesStyles.modalView}>
           <Text style={styles.salesStyles.modalTitle}>{staffToEdit ? 'Sửa Nhân viên' : 'Thêm Nhân viên'}</Text>
-          <TextInput style={styles.salesStyles.modalInput} placeholder="Email" value={email} onChangeText={setEmail} editable={!staffToEdit} />
-          <TextInput style={styles.salesStyles.modalInput} placeholder="Tên hiển thị" value={displayName} onChangeText={setDisplayName} />
+          <TextInput 
+              style={styles.salesStyles.modalInput} 
+              placeholder="Email" 
+              value={email} 
+              onChangeText={setEmail} 
+              editable={false} // Email không được sửa
+          />
+          <TextInput 
+              style={styles.salesStyles.modalInput} 
+              placeholder="Tên hiển thị" 
+              value={displayName} 
+              onChangeText={setDisplayName} 
+          />
 
-          <Text style={styles.salesStyles.modalLabel}>Chọn vai trò:</Text>
+          <Text style={styles.staffStyles.modalLabel}>Chọn vai trò:</Text>
           <View style={styles.salesStyles.pickerContainer}>
             <Picker
               selectedValue={role}
-              onValueChange={(itemValue) => setRole(itemValue)}
+              onValueChange={(itemValue) => setRole(itemValue as UserRole)}
               style={styles.salesStyles.modalPicker}
+              enabled={canEditSensitiveFields} // [SỬA ĐỔI] Vô hiệu hóa nếu không phải quanlynhansu
             >
               <Picker.Item label="Chọn vai trò" value="" />
               {ROLES.map(r => <Picker.Item key={r.value} label={r.label} value={r.value} />)}
             </Picker>
           </View>
+          
+          {!canEditSensitiveFields && ( // [SỬA ĐỔI] Thông báo cho người dùng
+              <Text style={styles.staffStyles.infoText}>
+                  (Chỉ Quản lý Nhân sự được phép sửa vai trò)
+              </Text>
+          )}
 
-          <TextInput
-            style={styles.salesStyles.modalInput}
-            placeholder="Mã Manager (ID)"
-            value={managerId}
-            onChangeText={setManagerId}
-            keyboardType="numeric"
-          />
+          <Text style={styles.staffStyles.modalLabel}>Chọn phòng ban (Người quản lý):</Text>
+          <View style={styles.salesStyles.pickerContainer}>
+            <Picker
+              selectedValue={managerId}
+              onValueChange={(itemValue) => setManagerId(itemValue)}
+              style={styles.salesStyles.modalPicker}
+              enabled={canEditSensitiveFields} // [SỬA ĐỔI] Vô hiệu hóa nếu không phải quanlynhansu
+            >
+              <Picker.Item label="Không có (Cấp cao nhất)" value="" />
+              {managers.map(m => (
+                <Picker.Item key={m.uid} label={`${m.displayName} (${getRoleDisplayName(m.role)})`} value={m.uid} />
+              ))}
+            </Picker>
+          </View>
+          
+          {!canEditSensitiveFields && ( // [SỬA ĐỔI] Thông báo cho người dùng
+              <Text style={styles.staffStyles.infoText}>
+                  (Chỉ Quản lý Nhân sự được phép phân công phòng ban)
+              </Text>
+          )}
 
           <View style={styles.salesStyles.modalButtons}>
             <Button title="Hủy" onPress={onClose} color="red" />
@@ -146,12 +185,7 @@ interface AssignScheduleModalProps {
   isVisible: boolean;
   onClose: () => void;
   staffToAssign: StaffUser | null;
-  onAssign: (data: {
-    uid: string;
-    date: string;
-    shift: string;
-    note: string;
-  }) => void;
+  onAssign: (data: { uid: string; date: string; shift: string; note: string }) => Promise<void>;
 }
 
 const AssignScheduleModal: React.FC<AssignScheduleModalProps> = ({
@@ -160,64 +194,90 @@ const AssignScheduleModal: React.FC<AssignScheduleModalProps> = ({
   staffToAssign,
   onAssign,
 }) => {
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [selectedDate, setSelectedDate] = useState('');
   const [shift, setShift] = useState('');
   const [note, setNote] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleAssign = () => {
-    if (!staffToAssign || !date || !shift) {
-      Alert.alert('Lỗi', 'Vui lòng điền đủ thông tin.');
+  useEffect(() => {
+    if (staffToAssign) {
+      setSelectedDate(new Date().toISOString().slice(0, 10)); // Default to today
+      setShift('');
+      setNote('');
+    }
+  }, [staffToAssign]);
+
+  const handleAssign = async () => {
+    if (!staffToAssign || !selectedDate || !shift) {
+      Alert.alert('Lỗi', 'Vui lòng chọn ngày và ca làm việc.');
       return;
     }
-    onAssign({ uid: staffToAssign.uid, date, shift, note });
-    onClose();
+    setLoading(true);
+    try {
+      await onAssign({
+        uid: staffToAssign.uid,
+        date: selectedDate,
+        shift,
+        note,
+      });
+      onClose();
+    } catch (e: any) {
+      Alert.alert('Lỗi', e.message || 'Không thể phân công lịch làm việc.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <Modal
-      animationType='slide'
-      transparent={true}
-      visible={isVisible}
-      onRequestClose={onClose}>
+    <Modal animationType='slide' transparent={true} visible={isVisible} onRequestClose={onClose}>
       <View style={styles.salesStyles.modalOverlay}>
         <View style={styles.salesStyles.modalView}>
           <Text style={styles.salesStyles.modalTitle}>
-            Phân công lịch làm việc
+            Phân công lịch làm việc cho {staffToAssign?.displayName}
           </Text>
-          <Text style={{ textAlign: 'center', marginBottom: 10 }}>
-            Cho nhân viên: {staffToAssign?.displayName}
-          </Text>
-          <TextInput
-            style={styles.salesStyles.modalInput}
-            placeholder='Ngày (YYYY-MM-DD)'
-            value={date}
-            onChangeText={setDate}
+          <Calendar
+            onDayPress={(day) => setSelectedDate(day.dateString)}
+            markedDates={{
+              [selectedDate]: {
+                selected: true,
+                marked: true,
+                selectedColor: '#10B981',
+              },
+            }}
+            style={{ width: '100%', marginBottom: 20 }}
           />
+          <Text style={styles.staffStyles.modalLabel}>Chọn ca làm việc:</Text>
+          <View style={styles.salesStyles.pickerContainer}>
+            <Picker
+              selectedValue={shift}
+              onValueChange={(itemValue) => setShift(itemValue)}
+              style={styles.salesStyles.modalPicker}>
+              <Picker.Item label='Chọn ca' value='' />
+              <Picker.Item label='Ca sáng (8h-12h)' value='Ca sáng' />
+              <Picker.Item label='Ca chiều (13h-17h)' value='Ca chiều' />
+              <Picker.Item label='Ca tối (18h-22h)' value='Ca tối' />
+              <Picker.Item label='Nghỉ' value='Nghỉ' />
+            </Picker>
+          </View>
           <TextInput
             style={styles.salesStyles.modalInput}
-            placeholder='Ca làm việc'
-            value={shift}
-            onChangeText={setShift}
-          />
-          <TextInput
-            style={styles.salesStyles.modalInput}
-            placeholder='Ghi chú (Tùy chọn)'
+            placeholder='Ghi chú (nếu có)'
             value={note}
             onChangeText={setNote}
+            multiline
           />
           <View style={styles.salesStyles.modalButtons}>
             <Button title='Hủy' onPress={onClose} color='red' />
-            <Button title='Lưu' onPress={handleAssign} color='green' />
+            <Button title={loading ? 'Đang lưu...' : 'Phân công'} onPress={handleAssign} color='green' disabled={loading} />
           </View>
         </View>
       </View>
     </Modal>
   );
 };
-
 export default function StaffScreen() {
   const insets = useSafeAreaInsets();
-  const { role, user } = useAuth();
+  const { currentUser, user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
   const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null);
@@ -226,9 +286,12 @@ export default function StaffScreen() {
   const [staffToEdit, setStaffToEdit] = useState<StaffUser | null>(null);
 
   const [isAssignModalVisible, setAssignModalVisible] = useState(false);
+  const [managers, setManagers] = useState<StaffUser[]>([]); 
   const [staffToAssign, setStaffToAssign] = useState<StaffUser | null>(null);
 
   const today = new Date().toISOString().slice(0, 10);
+  
+  const role = currentUser?.role;
 
   const fetchStaffData = useCallback(async () => {
     if (!user) {
@@ -251,18 +314,18 @@ export default function StaffScreen() {
           });
           setSelectedDay({
             dateString: today,
-            day: new Date().getDate(),
-            month: new Date().getMonth() + 1,
-            year: new Date().getFullYear(),
           } as CalendarDay);
         }
-      } else if (
-        role === 'quanlynansu' ||
-        role === 'truongphong' ||
-        role === 'thukho'
-      ) {
-        const staffList = await StaffService.getStaffList(role!, user.uid);
-        setData(staffList.filter((u) => u.uid !== user.uid));
+      } else { 
+        const staffList = await StaffService.getStaffList(
+          user.uid,
+          currentUser?.role || 'unassigned',
+          currentUser?.managerId
+        );
+        setData(staffList);
+
+        const managerUsers = await StaffService.getManagers();
+        setManagers(managerUsers);
       }
     } catch (e) {
       console.error('Lỗi khi tải dữ liệu nhân sự:', e);
@@ -270,24 +333,24 @@ export default function StaffScreen() {
     } finally {
       setLoading(false);
     }
-  }, [role, user]);
+  }, [user, role, today, currentUser]);
 
   useEffect(() => {
     fetchStaffData();
   }, [fetchStaffData]);
 
   const handleEditUser = (staff: StaffUser) => {
-    setStaffToEdit(staff);
-    setModalVisible(true);
-  };
+    // [SỬA ĐỔI] Kiểm tra lại quyền trước khi mở Modal (để tránh lỗi nếu logic hiển thị nút sai)
+    const isTopLevel = currentUser?.managerId === null || currentUser?.role === 'quanlynhansu';
+    const isMidLevel = currentUser?.role === 'truongphong' || currentUser?.role === 'thukho';
+    const isAllowedToEdit = isTopLevel || (isMidLevel && (staff.managerId === currentUser?.uid || staff.role === 'unassigned'));
 
-  const handleAddUser = () => {
-    if (user?.managerId !== 0) {
-      Alert.alert('Không có quyền', 'Chỉ tài khoản quản lý cao nhất (ManagerId: 0) mới được thêm nhân viên.');
-      return;
+    if (isAllowedToEdit) {
+      setStaffToEdit(staff);
+      setModalVisible(true);
+    } else {
+      Alert.alert('Lỗi', 'Bạn không có quyền sửa thông tin nhân viên này.');
     }
-    setStaffToEdit(null);
-    setModalVisible(true);
   };
 
   const handleAssignSchedule = (staff: StaffUser) => {
@@ -295,23 +358,18 @@ export default function StaffScreen() {
     setAssignModalVisible(true);
   };
 
-  const handleSaveUser = async (data: StaffUser) => {
+  const handleSaveUser = async (data: Partial<StaffUser>) => {
+    // [SỬA LỖI] Chỉ gửi những trường có trong `data` (được tạo trong StaffModal)
     try {
+      // [SỬA LỖI] Loại bỏ trường 'uid' khỏi payload cập nhật để tránh lỗi PERMISSION_DENIED.
+      // Firestore không cho phép cập nhật ID của document.
+      const { uid, ...updateData } = data;
+
       if (staffToEdit) {
-        await StaffService.updateStaff(staffToEdit.uid, data);
+        await StaffService.updateStaff(staffToEdit.uid, updateData);
         Alert.alert('Thành công', 'Đã cập nhật thông tin nhân viên.');
       } else {
-        await StaffService.addStaff(
-          data.email,
-          '123456',
-          data.displayName,
-          data.role,
-          data.managerId
-        );
-        Alert.alert(
-          'Thành công',
-          'Đã thêm nhân viên mới (Mật khẩu mặc định: 123456).'
-        );
+        console.log("Chức năng thêm mới không còn được hỗ trợ từ màn hình này.");
       }
       fetchStaffData();
     } catch (e: any) {
@@ -372,74 +430,86 @@ export default function StaffScreen() {
     );
   }
 
-  const renderStaffItem = ({ item }: { item: StaffUser }) => (
-    <View style={styles.staffStyles.staffItem}>
-      <View style={styles.staffStyles.staffInfo}>
-        <Text style={styles.staffStyles.staffName}>
-          {item.displayName} ({item.email})
-        </Text>
-        <Text style={styles.staffStyles.staffRole}>
-          Vai trò: {getRoleDisplayName(item.role)}
-        </Text>
+  // [SỬA ĐỔI] Logic hiển thị nút Sửa đã được thay đổi.
+  const renderStaffItem = ({ item }: { item: StaffUser }) => {
+      const isTopLevelManager = currentUser?.managerId === null || currentUser?.role === 'quanlynhansu';
 
-        {role === 'quanlynansu' && (
-          <View style={{ marginTop: 5 }}>
-            <Text style={styles.staffStyles.staffHours}>
-              Giờ công:{' '}
-              <Text style={styles.staffStyles.boldText}>
-                {item.monthlyHours ? item.monthlyHours : 0} giờ
+      // [THAY ĐỔI] Chỉ Tổng quản lý mới có quyền sửa và xóa người khác.
+      return (
+          <View style={styles.staffStyles.staffItem}>
+            <View style={styles.staffStyles.staffInfo}>
+              <Text style={styles.staffStyles.staffName}>
+                {item.displayName} ({item.email})
               </Text>
-            </Text>
-            <Text style={styles.staffStyles.staffHours}>
-              Lương (Dự kiến):{' '}
-              <Text style={styles.staffStyles.boldText}>
-                {item.monthlySalary
-                  ? item.monthlySalary.toLocaleString('vi-VN')
-                  : '0'}{' '}
-                VND
+              <Text style={styles.staffStyles.staffRole}>
+                Vai trò: {getRoleDisplayName(item.role)}
               </Text>
-            </Text>
+              
+              {/* Chỉ Total Manager mới thấy thông tin lương/giờ công */}
+              {isTopLevelManager && (
+                <View style={{ marginTop: 5 }}>
+                  <Text style={styles.staffStyles.staffHours}>
+                    Giờ công:{' '}
+                    <Text style={styles.staffStyles.boldText}>
+                      {item.monthlyHours ? item.monthlyHours : 0} giờ
+                    </Text>
+                  </Text>
+                  <Text style={styles.staffStyles.staffHours}>
+                    Lương (Dự kiến):{' '}
+                    <Text style={styles.staffStyles.boldText}>
+                      {item.monthlySalary
+                        ? item.monthlySalary.toLocaleString('vi-VN')
+                        : '0'}{' '}
+                      VND
+                    </Text>
+                  </Text>
+                </View>
+              )}
+            </View>
+            
+            {/* Action Buttons: Chỉ hiển thị nếu là Quản lý */}
+            {isTopLevelManager && (
+              <View style={styles.staffStyles.actionButtons}>
+                {/* Nút Phân công Lịch làm việc: Hiển thị cho cả 2 cấp quản lý */}
+                <TouchableOpacity onPress={() => handleAssignSchedule(item)}>
+                  <Ionicons
+                    name='calendar-outline'
+                    size={24}
+                    color='#3B82F6'
+                    style={styles.staffStyles.buttonIcon}
+                  />
+                </TouchableOpacity>
+                
+                {/* Nút SỬA (Edit): Chỉ Total Manager mới có quyền */}
+                <TouchableOpacity onPress={() => handleEditUser(item)}>
+                  <Ionicons
+                    name='create-outline'
+                    size={24}
+                    color='#3B82F6'
+                    style={styles.staffStyles.buttonIcon}
+                  />
+                </TouchableOpacity>
+                
+                {/* Nút XÓA (Delete): Chỉ Total Manager mới có quyền */}
+                {isTopLevelManager && (
+                  <TouchableOpacity onPress={() => handleDeleteUser(item.uid)}>
+                    <Ionicons
+                      name='trash-outline'
+                      size={24}
+                      color='#EF4444'
+                      style={styles.staffStyles.buttonIcon}
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </View>
-        )}
-      </View>
-      {(role === 'quanlynansu' || role === 'truongphong' || role === 'thukho') && (
-        <View style={styles.staffStyles.actionButtons}>
-          <TouchableOpacity onPress={() => handleAssignSchedule(item)}>
-            <Ionicons
-              name='calendar-outline'
-              size={24}
-              color='#3B82F6'
-              style={styles.staffStyles.buttonIcon}
-            />
-          </TouchableOpacity>
-          {role === 'quanlynansu' && (
-            <>
-              <TouchableOpacity onPress={() => handleEditUser(item)}>
-                <Ionicons
-                  name='create-outline'
-                  size={24}
-                  color='#3B82F6'
-                  style={styles.staffStyles.buttonIcon}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleDeleteUser(item.uid)}>
-                <Ionicons
-                  name='trash-outline'
-                  size={24}
-                  color='#EF4444'
-                  style={styles.staffStyles.buttonIcon}
-                />
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      )}
-    </View>
-  );
-
+      );
+  };
+  // ... (Phần còn lại của component StaffScreen giữ nguyên) ...
+  
   const isIndividualView = role === 'nhanvienkho' || role === 'nhanvienkd';
-  const isManagerView =
-    role === 'quanlynansu' || role === 'truongphong' || role === 'thukho';
+  const isManagerView = !isIndividualView;
 
   if (isIndividualView && data) {
     const selectedDaySchedule = selectedDay
@@ -532,23 +602,22 @@ export default function StaffScreen() {
   }
 
   if (isManagerView && data) {
+    const isTopLevelManager = currentUser?.managerId === null || currentUser?.role === 'quanlynhansu';
     return (
       <View
         style={[styles.staffStyles.container, { paddingTop: insets.top + 20 }]}>
-        <View style={styles.salesStyles.header}>
+        <View style={[styles.salesStyles.header, { marginBottom: 10 }]}>
           <Text style={styles.staffStyles.headerTitle}>
-            {role === 'quanlynansu'
+            {isTopLevelManager
               ? 'Quản lý Chuyên sâu'
               : 'Nhân viên dưới quyền'}
           </Text>
-          {user?.managerId === 0 && (
-            <TouchableOpacity onPress={handleAddUser} style={styles.salesStyles.addButton}>
-              <Ionicons name='add-circle-outline' size={30} color='#10B981' />
-            </TouchableOpacity>
+          {isTopLevelManager && (
+            <Ionicons name='add-circle-outline' size={30} color='#10B981' />
           )}
         </View>
 
-        {role === 'quanlynansu' && (
+        {isTopLevelManager && (
           <View style={styles.staffStyles.workHoursCard}>
             <View style={{ flex: 1 }}>
               <Text style={styles.staffStyles.staffName}>
@@ -578,6 +647,7 @@ export default function StaffScreen() {
           onClose={() => setModalVisible(false)}
           staffToEdit={staffToEdit}
           onSave={handleSaveUser}
+          managers={managers} 
         />
         <AssignScheduleModal
           isVisible={isAssignModalVisible}
