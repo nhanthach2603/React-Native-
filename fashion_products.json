@@ -1,0 +1,846 @@
+[
+  {
+    "id": "prod_001",
+    "name": "Áo Sơ Mi Nam Oxford Dài Tay",
+    "sku": "SMN-OXF-01",
+    "unit": "Cái",
+    "price": 450000,
+    "category": "cat_01",
+    "variants": [
+      { "color": "Trắng", "size": "S", "quantity": 25 },
+      { "color": "Trắng", "size": "M", "quantity": 30 },
+      { "color": "Trắng", "size": "L", "quantity": 15 },
+      { "color": "Xanh Nhạt", "size": "M", "quantity": 20 },
+      { "color": "Xanh Nhạt", "size": "L", "quantity": 18 }
+    ],
+    "totalQuantity": 108
+  },
+  {
+    "id": "prod_002",
+    "name": "Áo Sơ Mi Nữ Lụa Cổ Đức",
+    "sku": "SMN-LUA-02",
+    "unit": "Cái",
+    "price": 520000,
+    "category": "cat_01",
+    "variants": [
+      { "color": "Be", "size": "S", "quantity": 22 },
+      { "color": "Be", "size": "M", "quantity": 25 },
+      { "color": "Hồng Pastel", "size": "S", "quantity": 15 }
+    ],
+    "totalQuantity": 62
+  },
+  {
+    "id": "prod_003",
+    "name": "Áo Thun Cotton Basic Trơn",
+    "sku": "AT-CTB-01",
+    "unit": "Cái",
+    "price": 180000,
+    "category": "cat_02",
+    "variants": [
+      { "color": "Đen", "size": "S", "quantity": 50 },
+      { "color": "Đen", "size": "M", "quantity": 60 },
+      { "color": "Đen", "size": "L", "quantity": 40 },
+      { "color": "Trắng", "size": "S", "quantity": 55 },
+      { "color": "Trắng", "size": "M", "quantity": 65 },
+      { "color": "Trắng", "size": "L", "quantity": 45 }
+    ],
+    "totalQuantity": 315
+  },
+  {
+    "id": "prod_004",
+    "name": "Áo Thun In Họa Tiết Local Brand",
+    "sku": "AT-PRT-02",
+    "unit": "Cái",
+    "price": 350000,
+    "category": "cat_02",
+    "variants": [
+      { "color": "Xám", "size": "M", "quantity": 30 },
+      { "color": "Xám", "size": "L", "quantity": 25 },
+      { "color": "Xanh Rêu", "size": "M", "quantity": 28 }
+    ],
+    "totalQuantity": 83
+  },
+  {
+    "id": "prod_005",
+    "name": "Áo Polo Nam Pique Co Giãn",
+    "sku": "AP-PIQ-01",
+    "unit": "Cái",
+    "price": 380000,
+    "category": "cat_03",
+    "variants": [
+      { "color": "Xanh Navy", "size": "M", "quantity": 40 },
+      { "color": "Xanh Navy", "size": "L", "quantity": 35 },
+      { "color": "Xanh Navy", "size": "XL", "quantity": 20 },
+      { "color": "Đỏ Đô", "size": "M", "quantity": 25 },
+      { "color": "Đỏ Đô", "size": "L", "quantity": 22 }
+    ],
+    "totalQuantity": 142
+  },
+  {
+    "id": "prod_006",
+    "name": "Quần Jeans Nam Slim-fit",
+    "sku": "QJ-SLM-01",
+    "unit": "Quần",
+    "price": 550000,
+    "category": "cat_04",
+    "variants": [
+      { "color": "Xanh Đậm", "size": "29", "quantity": 30 },
+      { "color": "Xanh Đậm", "size": "30", "quantity": 40 },
+      { "color": "Xanh Đậm", "size": "31", "quantity": 35 },
+      { "color": "Xanh Đậm", "size": "32", "quantity": 25 }
+    ],
+    "totalQuantity": 130
+  },
+  {
+    "id": "prod_007",
+    "name": "Quần Jeans Nữ Ống Rộng Cạp Cao",
+    "sku": "QJ-WID-02",
+    "unit": "Quần",
+    "price": 620000,
+    "category": "cat_04",
+    "variants": [
+      { "color": "Xanh Nhạt", "size": "26", "quantity": 25 },
+      { "color": "Xanh Nhạt", "size": "27", "quantity": 30 },
+      { "color": "Xanh Nhạt", "size": "28", "quantity": 28 },
+      { "color": "Đen", "size": "27", "quantity": 20 }
+    ],
+    "totalQuantity": 103
+  },
+  {
+    "id": "prod_008",
+    "name": "Quần Kaki Nam Chino Dáng Suông",
+    "sku": "QK-CHN-01",
+    "unit": "Quần",
+    "price": 480000,
+    "category": "cat_05",
+    "variants": [
+      { "color": "Be", "size": "29", "quantity": 33 },
+      { "color": "Be", "size": "30", "quantity": 42 },
+      { "color": "Be", "size": "31", "quantity": 38 },
+      { "color": "Xám Đậm", "size": "30", "quantity": 25 }
+    ],
+    "totalQuantity": 138
+  },
+  {
+    "id": "prod_009",
+    "name": "Váy Hoa Nhí Dáng Dài Vintage",
+    "sku": "V-VNT-01",
+    "unit": "Cái",
+    "price": 750000,
+    "category": "cat_06",
+    "variants": [
+      { "color": "Vàng", "size": "S", "quantity": 18 },
+      { "color": "Vàng", "size": "M", "quantity": 22 },
+      { "color": "Xanh Mint", "size": "S", "quantity": 15 }
+    ],
+    "totalQuantity": 55
+  },
+  {
+    "id": "prod_010",
+    "name": "Chân Váy Tennis Xếp Ly",
+    "sku": "CV-TNS-01",
+    "unit": "Cái",
+    "price": 320000,
+    "category": "cat_07",
+    "variants": [
+      { "color": "Trắng", "size": "S", "quantity": 40 },
+      { "color": "Trắng", "size": "M", "quantity": 35 },
+      { "color": "Đen", "size": "S", "quantity": 45 },
+      { "color": "Đen", "size": "M", "quantity": 40 }
+    ],
+    "totalQuantity": 160
+  },
+  {
+    "id": "prod_011",
+    "name": "Áo Khoác Bomber Kaki",
+    "sku": "AK-BMB-01",
+    "unit": "Cái",
+    "price": 680000,
+    "category": "cat_08",
+    "variants": [
+      { "color": "Đen", "size": "M", "quantity": 25 },
+      { "color": "Đen", "size": "L", "quantity": 20 },
+      { "color": "Xanh Rêu", "size": "M", "quantity": 18 }
+    ],
+    "totalQuantity": 63
+  },
+  {
+    "id": "prod_012",
+    "name": "Thắt Lưng Da Bò Thật",
+    "sku": "PK-TLD-01",
+    "unit": "Cái",
+    "price": 490000,
+    "category": "cat_09",
+    "variants": [
+      { "color": "Nâu", "size": "110cm", "quantity": 30 },
+      { "color": "Đen", "size": "110cm", "quantity": 40 }
+    ],
+    "totalQuantity": 70
+  },
+  {
+    "id": "prod_013",
+    "name": "Mũ Lưỡi Trai Thêu Chữ",
+    "sku": "PK-MLT-02",
+    "unit": "Cái",
+    "price": 250000,
+    "category": "cat_09",
+    "variants": [
+      { "color": "Đen", "size": "Free Size", "quantity": 60 },
+      { "color": "Trắng", "size": "Free Size", "quantity": 50 },
+      { "color": "Be", "size": "Free Size", "quantity": 45 }
+    ],
+    "totalQuantity": 155
+  },
+  {
+    "id": "prod_014",
+    "name": "Áo Sơ Mi Flannel Kẻ Caro",
+    "sku": "SMN-FLN-03",
+    "unit": "Cái",
+    "price": 480000,
+    "category": "cat_01",
+    "variants": [
+      { "color": "Đỏ-Đen", "size": "M", "quantity": 20 },
+      { "color": "Đỏ-Đen", "size": "L", "quantity": 15 },
+      { "color": "Xanh-Trắng", "size": "M", "quantity": 22 }
+    ],
+    "totalQuantity": 57
+  },
+  {
+    "id": "prod_015",
+    "name": "Áo Polo Nữ Cổ Bẻ",
+    "sku": "AP-NUCB-02",
+    "unit": "Cái",
+    "price": 350000,
+    "category": "cat_03",
+    "variants": [
+      { "color": "Trắng", "size": "S", "quantity": 30 },
+      { "color": "Trắng", "size": "M", "quantity": 25 },
+      { "color": "Hồng", "size": "S", "quantity": 20 }
+    ],
+    "totalQuantity": 75
+  },
+  {
+    "id": "prod_016",
+    "name": "Quần Jeans Baggy Nam",
+    "sku": "QJ-BGY-03",
+    "unit": "Quần",
+    "price": 580000,
+    "category": "cat_04",
+    "variants": [
+      { "color": "Xanh Bạc", "size": "30", "quantity": 25 },
+      { "color": "Xanh Bạc", "size": "31", "quantity": 20 },
+      { "color": "Xanh Bạc", "size": "32", "quantity": 15 }
+    ],
+    "totalQuantity": 60
+  },
+  {
+    "id": "prod_017",
+    "name": "Váy Bodycon Len Tăm",
+    "sku": "V-BDC-02",
+    "unit": "Cái",
+    "price": 590000,
+    "category": "cat_06",
+    "variants": [
+      { "color": "Đen", "size": "S", "quantity": 20 },
+      { "color": "Đen", "size": "M", "quantity": 18 },
+      { "color": "Nâu", "size": "S", "quantity": 15 }
+    ],
+    "totalQuantity": 53
+  },
+  {
+    "id": "prod_018",
+    "name": "Áo Khoác Jean Denim Jacket",
+    "sku": "AK-JDN-02",
+    "unit": "Cái",
+    "price": 720000,
+    "category": "cat_08",
+    "variants": [
+      { "color": "Xanh", "size": "M", "quantity": 30 },
+      { "color": "Xanh", "size": "L", "quantity": 25 },
+      { "color": "Xanh", "size": "XL", "quantity": 15 }
+    ],
+    "totalQuantity": 70
+  },
+  {
+    "id": "prod_019",
+    "name": "Khăn Choàng Cổ Len Cashmere",
+    "sku": "PK-KCL-03",
+    "unit": "Cái",
+    "price": 650000,
+    "category": "cat_09",
+    "variants": [
+      { "color": "Xám", "size": "180x70cm", "quantity": 20 },
+      { "color": "Be", "size": "180x70cm", "quantity": 25 }
+    ],
+    "totalQuantity": 45
+  },
+  {
+    "id": "prod_020",
+    "name": "Áo Thun Oversize Unisex",
+    "sku": "AT-OVS-03",
+    "unit": "Cái",
+    "price": 290000,
+    "category": "cat_02",
+    "variants": [
+      { "color": "Kem", "size": "M", "quantity": 40 },
+      { "color": "Kem", "size": "L", "quantity": 35 },
+      { "color": "Nâu", "size": "M", "quantity": 30 }
+    ],
+    "totalQuantity": 105
+  },
+  {
+    "id": "prod_021",
+    "name": "Quần Kaki Nữ Ống Đứng",
+    "sku": "QK-ODN-02",
+    "unit": "Quần",
+    "price": 450000,
+    "category": "cat_05",
+    "variants": [
+      { "color": "Đen", "size": "26", "quantity": 30 },
+      { "color": "Đen", "size": "27", "quantity": 25 },
+      { "color": "Nâu", "size": "26", "quantity": 20 }
+    ],
+    "totalQuantity": 75
+  },
+  {
+    "id": "prod_022",
+    "name": "Chân Váy Jean Chữ A",
+    "sku": "CV-JCA-02",
+    "unit": "Cái",
+    "price": 380000,
+    "category": "cat_07",
+    "variants": [
+      { "color": "Xanh", "size": "S", "quantity": 35 },
+      { "color": "Xanh", "size": "M", "quantity": 30 },
+      { "color": "Xanh", "size": "L", "quantity": 20 }
+    ],
+    "totalQuantity": 85
+  },
+  {
+    "id": "prod_023",
+    "name": "Áo Sơ Mi Tay Ngắn Linen",
+    "sku": "SMN-LNN-04",
+    "unit": "Cái",
+    "price": 420000,
+    "category": "cat_01",
+    "variants": [
+      { "color": "Trắng Kem", "size": "M", "quantity": 25 },
+      { "color": "Trắng Kem", "size": "L", "quantity": 20 },
+      { "color": "Xanh Olive", "size": "M", "quantity": 18 }
+    ],
+    "totalQuantity": 63
+  },
+  {
+    "id": "prod_024",
+    "name": "Áo Polo Thể Thao Dry-fit",
+    "sku": "AP-DRY-03",
+    "unit": "Cái",
+    "price": 420000,
+    "category": "cat_03",
+    "variants": [
+      { "color": "Đen", "size": "L", "quantity": 30 },
+      { "color": "Đen", "size": "XL", "quantity": 25 },
+      { "color": "Xanh Cobalt", "size": "L", "quantity": 22 }
+    ],
+    "totalQuantity": 77
+  },
+  {
+    "id": "prod_025",
+    "name": "Quần Jeans Rách Gối (Destroyed)",
+    "sku": "QJ-DST-04",
+    "unit": "Quần",
+    "price": 650000,
+    "category": "cat_04",
+    "variants": [
+      { "color": "Xanh Mài", "size": "29", "quantity": 15 },
+      { "color": "Xanh Mài", "size": "30", "quantity": 20 },
+      { "color": "Đen", "size": "30", "quantity": 18 }
+    ],
+    "totalQuantity": 53
+  },
+  {
+    "id": "prod_026",
+    "name": "Váy Sơ Mi Dáng Suông",
+    "sku": "V-SMD-03",
+    "unit": "Cái",
+    "price": 680000,
+    "category": "cat_06",
+    "variants": [
+      { "color": "Trắng", "size": "S", "quantity": 20 },
+      { "color": "Trắng", "size": "M", "quantity": 25 },
+      { "color": "Kẻ Sọc Xanh", "size": "M", "quantity": 15 }
+    ],
+    "totalQuantity": 60
+  },
+  {
+    "id": "prod_027",
+    "name": "Áo Khoác Cardigan Len Mỏng",
+    "sku": "AK-CDG-03",
+    "unit": "Cái",
+    "price": 550000,
+    "category": "cat_08",
+    "variants": [
+      { "color": "Be", "size": "Free Size", "quantity": 30 },
+      { "color": "Xám", "size": "Free Size", "quantity": 25 }
+    ],
+    "totalQuantity": 55
+  },
+  {
+    "id": "prod_028",
+    "name": "Tất Cổ Cao Gân Tăm",
+    "sku": "PK-TCC-04",
+    "unit": "Đôi",
+    "price": 50000,
+    "category": "cat_09",
+    "variants": [
+      { "color": "Trắng", "size": "Free Size", "quantity": 100 },
+      { "color": "Đen", "size": "Free Size", "quantity": 120 },
+      { "color": "Xám", "size": "Free Size", "quantity": 80 }
+    ],
+    "totalQuantity": 300
+  },
+  {
+    "id": "prod_029",
+    "name": "Áo Thun Ba Lỗ Tanktop",
+    "sku": "AT-TKT-04",
+    "unit": "Cái",
+    "price": 150000,
+    "category": "cat_02",
+    "variants": [
+      { "color": "Trắng", "size": "M", "quantity": 40 },
+      { "color": "Trắng", "size": "L", "quantity": 30 },
+      { "color": "Đen", "size": "M", "quantity": 45 }
+    ],
+    "totalQuantity": 115
+  },
+  {
+    "id": "prod_030",
+    "name": "Quần Short Kaki",
+    "sku": "QK-SRT-03",
+    "unit": "Quần",
+    "price": 350000,
+    "category": "cat_05",
+    "variants": [
+      { "color": "Xanh Navy", "size": "30", "quantity": 30 },
+      { "color": "Xanh Navy", "size": "32", "quantity": 25 },
+      { "color": "Be", "size": "30", "quantity": 35 }
+    ],
+    "totalQuantity": 90
+  },
+  {
+    "id": "prod_031",
+    "name": "Chân Váy Midi Lụa",
+    "sku": "CV-MDL-03",
+    "unit": "Cái",
+    "price": 480000,
+    "category": "cat_07",
+    "variants": [
+      { "color": "Đen", "size": "S", "quantity": 20 },
+      { "color": "Đen", "size": "M", "quantity": 15 },
+      { "color": "Xanh Rêu", "size": "S", "quantity": 18 }
+    ],
+    "totalQuantity": 53
+  },
+  {
+    "id": "prod_032",
+    "name": "Áo Sơ Mi Hoạ Tiết Hoa Lá",
+    "sku": "SMN-HTH-05",
+    "unit": "Cái",
+    "price": 490000,
+    "category": "cat_01",
+    "variants": [
+      { "color": "Nền Đen", "size": "L", "quantity": 15 },
+      { "color": "Nền Trắng", "size": "M", "quantity": 20 },
+      { "color": "Nền Trắng", "size": "L", "quantity": 12 }
+    ],
+    "totalQuantity": 47
+  },
+  {
+    "id": "prod_033",
+    "name": "Áo Polo Dài Tay",
+    "sku": "AP-LSL-04",
+    "unit": "Cái",
+    "price": 450000,
+    "category": "cat_03",
+    "variants": [
+      { "color": "Xám Tiêu", "size": "M", "quantity": 25 },
+      { "color": "Xám Tiêu", "size": "L", "quantity": 20 },
+      { "color": "Đen", "size": "M", "quantity": 30 }
+    ],
+    "totalQuantity": 75
+  },
+  {
+    "id": "prod_034",
+    "name": "Quần Jeans Nữ Boyfriend",
+    "sku": "QJ-BFR-05",
+    "unit": "Quần",
+    "price": 600000,
+    "category": "cat_04",
+    "variants": [
+      { "color": "Xanh Cổ Điển", "size": "27", "quantity": 22 },
+      { "color": "Xanh Cổ Điển", "size": "28", "quantity": 25 },
+      { "color": "Xanh Cổ Điển", "size": "29", "quantity": 18 }
+    ],
+    "totalQuantity": 65
+  },
+  {
+    "id": "prod_035",
+    "name": "Váy Hai Dây Maxi Đi Biển",
+    "sku": "V-MAX-04",
+    "unit": "Cái",
+    "price": 820000,
+    "category": "cat_06",
+    "variants": [
+      { "color": "Trắng", "size": "S", "quantity": 12 },
+      { "color": "Trắng", "size": "M", "quantity": 15 },
+      { "color": "Vàng Chanh", "size": "S", "quantity": 10 }
+    ],
+    "totalQuantity": 37
+  },
+  {
+    "id": "prod_036",
+    "name": "Áo Khoác Hoodie Nỉ Bông",
+    "sku": "AK-HDD-04",
+    "unit": "Cái",
+    "price": 580000,
+    "category": "cat_08",
+    "variants": [
+      { "color": "Xám", "size": "M", "quantity": 40 },
+      { "color": "Xám", "size": "L", "quantity": 35 },
+      { "color": "Đen", "size": "M", "quantity": 50 },
+      { "color": "Đen", "size": "L", "quantity": 45 }
+    ],
+    "totalQuantity": 170
+  },
+  {
+    "id": "prod_037",
+    "name": "Mũ Bucket Hat Vành Cụp",
+    "sku": "PK-BKH-05",
+    "unit": "Cái",
+    "price": 280000,
+    "category": "cat_09",
+    "variants": [
+      { "color": "Đen", "size": "Free Size", "quantity": 40 },
+      { "color": "Be", "size": "Free Size", "quantity": 35 }
+    ],
+    "totalQuantity": 75
+  },
+  {
+    "id": "prod_038",
+    "name": "Áo Thun Raglan Tay Dài",
+    "sku": "AT-RGL-05",
+    "unit": "Cái",
+    "price": 320000,
+    "category": "cat_02",
+    "variants": [
+      { "color": "Trắng-Đen", "size": "M", "quantity": 25 },
+      { "color": "Trắng-Đen", "size": "L", "quantity": 20 },
+      { "color": "Xám-Xanh", "size": "M", "quantity": 22 }
+    ],
+    "totalQuantity": 67
+  },
+  {
+    "id": "prod_039",
+    "name": "Quần Jogger Kaki",
+    "sku": "QK-JGG-04",
+    "unit": "Quần",
+    "price": 490000,
+    "category": "cat_05",
+    "variants": [
+      { "color": "Đen", "size": "M", "quantity": 30 },
+      { "color": "Đen", "size": "L", "quantity": 25 },
+      { "color": "Xanh Rêu", "size": "M", "quantity": 28 }
+    ],
+    "totalQuantity": 83
+  },
+  {
+    "id": "prod_040",
+    "name": "Chân Váy Xòe Voan Hoa",
+    "sku": "CV-XVH-04",
+    "unit": "Cái",
+    "price": 420000,
+    "category": "cat_07",
+    "variants": [
+      { "color": "Nền Đen", "size": "S", "quantity": 20 },
+      { "color": "Nền Đen", "size": "M", "quantity": 18 },
+      { "color": "Nền Trắng", "size": "S", "quantity": 22 }
+    ],
+    "totalQuantity": 60
+  },
+  {
+    "id": "prod_041",
+    "name": "Áo Sơ Mi Nam Cổ Tàu",
+    "sku": "SMN-CT-06",
+    "unit": "Cái",
+    "price": 460000,
+    "category": "cat_01",
+    "variants": [
+      { "color": "Trắng", "size": "M", "quantity": 28 },
+      { "color": "Trắng", "size": "L", "quantity": 22 },
+      { "color": "Đen", "size": "M", "quantity": 25 }
+    ],
+    "totalQuantity": 75
+  },
+  {
+    "id": "prod_042",
+    "name": "Áo Thun Form Rộng In Chữ",
+    "sku": "AT-FRC-06",
+    "unit": "Cái",
+    "price": 250000,
+    "category": "cat_02",
+    "variants": [
+      { "color": "Vàng Nghệ", "size": "L", "quantity": 30 },
+      { "color": "Vàng Nghệ", "size": "XL", "quantity": 25 },
+      { "color": "Xanh Dương", "size": "L", "quantity": 28 }
+    ],
+    "totalQuantity": 83
+  },
+  {
+    "id": "prod_043",
+    "name": "Áo Polo Phối Màu Cổ",
+    "sku": "AP-PMC-05",
+    "unit": "Cái",
+    "price": 390000,
+    "category": "cat_03",
+    "variants": [
+      { "color": "Trắng-Xanh", "size": "M", "quantity": 35 },
+      { "color": "Trắng-Xanh", "size": "L", "quantity": 30 },
+      { "color": "Đen-Trắng", "size": "M", "quantity": 40 }
+    ],
+    "totalQuantity": 105
+  },
+  {
+    "id": "prod_044",
+    "name": "Quần Jeans Mom Fit",
+    "sku": "QJ-MOM-06",
+    "unit": "Quần",
+    "price": 630000,
+    "category": "cat_04",
+    "variants": [
+      { "color": "Xanh Wash", "size": "27", "quantity": 25 },
+      { "color": "Xanh Wash", "size": "28", "quantity": 20 },
+      { "color": "Xanh Wash", "size": "29", "quantity": 15 }
+    ],
+    "totalQuantity": 60
+  },
+  {
+    "id": "prod_045",
+    "name": "Quần Short Jean Nữ",
+    "sku": "QK-SJN-05",
+    "unit": "Quần",
+    "price": 380000,
+    "category": "cat_05",
+    "variants": [
+      { "color": "Xanh Nhạt", "size": "S", "quantity": 30 },
+      { "color": "Xanh Nhạt", "size": "M", "quantity": 25 },
+      { "color": "Đen", "size": "S", "quantity": 28 }
+    ],
+    "totalQuantity": 83
+  },
+  {
+    "id": "prod_046",
+    "name": "Váy Babydoll Dễ Thương",
+    "sku": "V-BBD-05",
+    "unit": "Cái",
+    "price": 550000,
+    "category": "cat_06",
+    "variants": [
+      { "color": "Hồng Phấn", "size": "S", "quantity": 20 },
+      { "color": "Hồng Phấn", "size": "M", "quantity": 15 },
+      { "color": "Trắng", "size": "S", "quantity": 25 }
+    ],
+    "totalQuantity": 60
+  },
+  {
+    "id": "prod_047",
+    "name": "Chân Váy Bút Chì Công Sở",
+    "sku": "CV-BCC-05",
+    "unit": "Cái",
+    "price": 450000,
+    "category": "cat_07",
+    "variants": [
+      { "color": "Đen", "size": "S", "quantity": 30 },
+      { "color": "Đen", "size": "M", "quantity": 35 },
+      { "color": "Xám", "size": "S", "quantity": 20 }
+    ],
+    "totalQuantity": 85
+  },
+  {
+    "id": "prod_048",
+    "name": "Áo Khoác Da Biker Jacket",
+    "sku": "AK-BKR-05",
+    "unit": "Cái",
+    "price": 1250000,
+    "category": "cat_08",
+    "variants": [
+      { "color": "Đen", "size": "M", "quantity": 15 },
+      { "color": "Đen", "size": "L", "quantity": 10 }
+    ],
+    "totalQuantity": 25
+  },
+  {
+    "id": "prod_049",
+    "name": "Ví Da Nam Gập",
+    "sku": "PK-VDN-06",
+    "unit": "Cái",
+    "price": 350000,
+    "category": "cat_09",
+    "variants": [
+      { "color": "Nâu Sẫm", "size": "Standard", "quantity": 40 },
+      { "color": "Đen", "size": "Standard", "quantity": 50 }
+    ],
+    "totalQuantity": 90
+  },
+  {
+    "id": "prod_050",
+    "name": "Áo Sơ Mi Nữ Tay Bồng",
+    "sku": "SMN-TBG-07",
+    "unit": "Cái",
+    "price": 510000,
+    "category": "cat_01",
+    "variants": [
+      { "color": "Trắng", "size": "S", "quantity": 25 },
+      { "color": "Trắng", "size": "M", "quantity": 20 },
+      { "color": "Xanh Baby", "size": "S", "quantity": 18 }
+    ],
+    "totalQuantity": 63
+  },
+  {
+    "id": "prod_051",
+    "name": "Áo Thun Cổ Lọ",
+    "sku": "AT-CL-07",
+    "unit": "Cái",
+    "price": 280000,
+    "category": "cat_02",
+    "variants": [
+      { "color": "Đen", "size": "M", "quantity": 30 },
+      { "color": "Đen", "size": "L", "quantity": 25 },
+      { "color": "Be", "size": "M", "quantity": 28 }
+    ],
+    "totalQuantity": 83
+  },
+  {
+    "id": "prod_052",
+    "name": "Áo Polo Sọc Ngang",
+    "sku": "AP-SNG-06",
+    "unit": "Cái",
+    "price": 410000,
+    "category": "cat_03",
+    "variants": [
+      { "color": "Trắng-Đen", "size": "L", "quantity": 25 },
+      { "color": "Trắng-Đen", "size": "XL", "quantity": 20 },
+      { "color": "Xanh-Trắng", "size": "L", "quantity": 22 }
+    ],
+    "totalQuantity": 67
+  },
+  {
+    "id": "prod_053",
+    "name": "Quần Jeans Skinny Nữ",
+    "sku": "QJ-SKN-07",
+    "unit": "Quần",
+    "price": 590000,
+    "category": "cat_04",
+    "variants": [
+      { "color": "Đen", "size": "26", "quantity": 30 },
+      { "color": "Đen", "size": "27", "quantity": 35 },
+      { "color": "Xanh Đậm", "size": "27", "quantity": 25 }
+    ],
+    "totalQuantity": 90
+  },
+  {
+    "id": "prod_054",
+    "name": "Quần Tây Nam Công Sở",
+    "sku": "QK-TCS-06",
+    "unit": "Quần",
+    "price": 520000,
+    "category": "cat_05",
+    "variants": [
+      { "color": "Xám Chì", "size": "30", "quantity": 30 },
+      { "color": "Xám Chì", "size": "31", "quantity": 25 },
+      { "color": "Đen", "size": "30", "quantity": 40 }
+    ],
+    "totalQuantity": 95
+  },
+  {
+    "id": "prod_055",
+    "name": "Váy Dạ Tweed Sang Trọng",
+    "sku": "V-TWD-06",
+    "unit": "Cái",
+    "price": 1150000,
+    "category": "cat_06",
+    "variants": [
+      { "color": "Trắng Kem", "size": "S", "quantity": 10 },
+      { "color": "Trắng Kem", "size": "M", "quantity": 8 },
+      { "color": "Đen", "size": "S", "quantity": 12 }
+    ],
+    "totalQuantity": 30
+  },
+  {
+    "id": "prod_056",
+    "name": "Chân Váy Xếp Ly Dài",
+    "sku": "CV-XLD-06",
+    "unit": "Cái",
+    "price": 490000,
+    "category": "cat_07",
+    "variants": [
+      { "color": "Hồng Nude", "size": "Free Size", "quantity": 25 },
+      { "color": "Đen", "size": "Free Size", "quantity": 30 }
+    ],
+    "totalQuantity": 55
+  },
+  {
+    "id": "prod_057",
+    "name": "Áo Khoác Phao Siêu Nhẹ",
+    "sku": "AK-PSN-06",
+    "unit": "Cái",
+    "price": 890000,
+    "category": "cat_08",
+    "variants": [
+      { "color": "Đen", "size": "M", "quantity": 20 },
+      { "color": "Đen", "size": "L", "quantity": 15 },
+      { "color": "Xanh Navy", "size": "L", "quantity": 18 }
+    ],
+    "totalQuantity": 53
+  },
+  {
+    "id": "prod_058",
+    "name": "Kính Mát Gọng Vuông",
+    "sku": "PK-KMG-07",
+    "unit": "Cái",
+    "price": 450000,
+    "category": "cat_09",
+    "variants": [
+      { "color": "Đen", "size": "Standard", "quantity": 30 },
+      { "color": "Đồi Mồi", "size": "Standard", "quantity": 25 }
+    ],
+    "totalQuantity": 55
+  },
+  {
+    "id": "prod_059",
+    "name": "Áo Sơ Mi Denim",
+    "sku": "SMN-DNM-08",
+    "unit": "Cái",
+    "price": 580000,
+    "category": "cat_01",
+    "variants": [
+      { "color": "Xanh Đậm", "size": "M", "quantity": 20 },
+      { "color": "Xanh Đậm", "size": "L", "quantity": 18 },
+      { "color": "Xanh Nhạt", "size": "M", "quantity": 22 }
+    ],
+    "totalQuantity": 60
+  },
+  {
+    "id": "prod_060",
+    "name": "Quần Culottes Nữ",
+    "sku": "QK-CLT-07",
+    "unit": "Quần",
+    "price": 480000,
+    "category": "cat_05",
+    "variants": [
+      { "color": "Đen", "size": "S", "quantity": 25 },
+      { "color": "Đen", "size": "M", "quantity": 30 },
+      { "color": "Trắng", "size": "S", "quantity": 20 }
+    ],
+    "totalQuantity": 75
+  }
+]

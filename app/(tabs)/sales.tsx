@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react'; // Giữ lại React
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
   ScrollView,
   Text,
   TextInput,
@@ -10,6 +11,7 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CustomPicker } from '../../components/CustomPicker';
 import { CategoryManagerModal } from '../../components/sales/CategoryManagerModal'; // Đã sửa lỗi
 import { ConfirmationModal } from '../../components/sales/ConfirmationModal'; // Đã sửa lỗi
 import { OrderEditModal } from '../../components/sales/OrderEditModal'; // Đã sửa lỗi
@@ -38,6 +40,9 @@ export default function SalesScreen() {
   const [orderToEdit, setOrderToEdit] = useState<Order | null>(null);
   const [staffList, setStaffList] = useState<StaffUser[]>([]);
   
+  const [isAssignToWHManagerModalVisible, setAssignToWHManagerModalVisible] = useState(false);
+  const [orderToAssignToWHManager, setOrderToAssignToWHManager] = useState<Order | null>(null);
+  const [warehouseManagers, setWarehouseManagers] = useState<StaffUser[]>([]);
   const [searchText, setSearchText] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
@@ -71,6 +76,10 @@ export default function SalesScreen() {
         const staffUids = staff.filter(s => s.role === 'nhanvienkd').map(s => s.uid);
         unsubscribeOrders = OrderService.subscribeToManagerOrders(user.uid, staffUids, setOrders);
       });
+      // Lấy danh sách thủ kho để phân công
+      StaffService.getStaffByRole('thukho').then(whManagers => {
+        setWarehouseManagers(whManagers);
+      });
     } else if (currentUser?.role === 'nhanvienkd' && user?.uid) {
       unsubscribeOrders = OrderService.subscribeToSalespersonOrders(user.uid, setOrders);
     }
@@ -84,7 +93,7 @@ export default function SalesScreen() {
 
   // Sửa lỗi: Hàm getStatusColor bị sai cú pháp
   const getStatusColor = (status: OrderStatus) => {
-    const colors: Record<OrderStatus, string> = { Draft: '#6B7280', Confirmed: '#F59E0B', Assigned: '#3B82F6', Processing: '#8B5CF6', Completed: '#0E7490', Shipped: '#10B981', Canceled: '#EF4444' };
+    const colors: Record<OrderStatus, string> = { Draft: '#6B7280', Confirmed: '#F59E0B', Assigned: '#3B82F6', Processing: '#8B5CF6', Completed: '#0E7490', Shipped: '#10B981', Canceled: '#EF4444', PendingRevision: '#D97706' };
     return colors[status] || '#6B7280';
   };
 
@@ -162,22 +171,53 @@ export default function SalesScreen() {
     });
   };
 
+  const handleOpenAssignToWHManagerModal = (order: Order) => {
+    setOrderToAssignToWHManager(order);
+    setAssignToWHManagerModalVisible(true);
+  };
+
+  const handleAssignToWarehouseManager = async (warehouseManagerId: string) => {
+    if (!orderToAssignToWHManager || !warehouseManagerId) {
+      handleShowMessage('Lỗi', 'Vui lòng chọn thủ kho.');
+      return;
+    }
+    const whManager = warehouseManagers.find(s => s.uid === warehouseManagerId);
+    if (!whManager) return;
+
+    await OrderService.assignToWarehouseManager(orderToAssignToWHManager.id, whManager.uid, whManager.displayName);
+    handleShowMessage('Thành công', `Đã giao đơn hàng cho thủ kho ${whManager.displayName}.`);
+    setAssignToWHManagerModalVisible(false);
+    setOrderToAssignToWHManager(null);
+  };
+
+
   const renderProductItem = ({ item }: { item: Product }) => (
     <View style={styles.salesStyles.productItem}>
       <View style={styles.salesStyles.productInfo}>
         <Text style={styles.salesStyles.productName}>{item.name}</Text>
         <Text style={styles.salesStyles.productDetails}>Mã SKU: {item.sku} | Danh mục: {categories.find(c => c.id === item.category)?.name || 'N/A'}</Text>
+        {/* [THÊM] Hiển thị chi tiết các biến thể */}
+        <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6' }}>
+          {item.variants && item.variants.length > 0 ? (
+            item.variants.map((variant, index) => (
+              // [SỬA LỖI] Hợp nhất thành một Text duy nhất để tránh lỗi lồng component
+              <Text key={index} style={[styles.salesStyles.productDetails, { color: '#374151' }]}>{`- ${variant.color ? `Màu: ${variant.color}, ` : ''}Size: ${variant.size} | Tồn: ${variant.quantity}`}</Text>
+            ))
+          ) : (
+            <Text style={[styles.salesStyles.productDetails, { fontStyle: 'italic' }]}>Chưa có biến thể nào.</Text>
+          )}
+        </View>
         <Text style={styles.salesStyles.productDetails}>Giá: {item.price.toLocaleString('vi-VN')} VND</Text>
       </View>
       <View style={styles.salesStyles.quantityControl}>
-        <Text style={styles.salesStyles.quantityText}>{item.quantity} {item.unit}</Text>
+        <Text style={styles.salesStyles.quantityText}>{item.totalQuantity} {item.unit}</Text>
         {canManage && (
           <View style={{ marginLeft: 15, flexDirection: 'row' }}>
             <TouchableOpacity onPress={() => handleOpenModal(item)} style={{ marginRight: 10 }}>
-              <Ionicons name="create-outline" size={24} color="#3B82F6" />
+              <View><Ionicons name="create-outline" size={24} color="#3B82F6" /></View>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => handleDeleteProduct(item.id!, item.name)}>
-              <Ionicons name="trash-outline" size={24} color="#EF4444" />
+              <View><Ionicons name="trash-outline" size={24} color="#EF4444" /></View>
             </TouchableOpacity>
           </View>
         )}
@@ -193,9 +233,20 @@ export default function SalesScreen() {
       </View>
       <Text style={styles.warehouseStyles.orderInfo}>Người tạo: {item.creatorName}</Text>
       <Text style={styles.warehouseStyles.orderInfo}>Ngày tạo: {item.createdAt?.toDate().toLocaleDateString('vi-VN')}</Text>
+      {/* [THÊM] Hiển thị ghi chú nếu đơn hàng bị báo cáo */}
+      {item.status === 'PendingRevision' && item.revisionNote && (
+        <Text style={[styles.warehouseStyles.orderInfo, { color: COLORS.error, fontStyle: 'italic' }]}>Lý do từ kho: {item.revisionNote}</Text>
+      )}
       <Text style={styles.warehouseStyles.orderInfo}>Tổng tiền: {item.totalAmount.toLocaleString('vi-VN')} VND</Text>
       <View style={styles.warehouseStyles.actionButtons}>
-        {(item.status === 'Draft' || item.status === 'Confirmed') && (
+        {/* Nút giao cho Thủ kho */}
+        {currentUser?.role === 'truongphong' && item.status === 'Confirmed' && !item.warehouseManagerId && (
+          <TouchableOpacity onPress={() => handleOpenAssignToWHManagerModal(item)} style={[styles.warehouseStyles.actionButton, { backgroundColor: COLORS.secondary, marginRight: 10 }]}>
+            <Text style={styles.warehouseStyles.actionButtonText}>Giao cho Kho</Text>
+          </TouchableOpacity>
+        )}
+        {/* [SỬA] Cho phép sửa đơn hàng khi ở trạng thái PendingRevision */}
+        {(item.status === 'Draft' || item.status === 'Confirmed' || item.status === 'PendingRevision') && (
           <TouchableOpacity onPress={() => handleOpenOrderModal(item)} style={[styles.warehouseStyles.actionButton, { backgroundColor: COLORS.accent, marginRight: 10 }]}>
             <Text style={styles.warehouseStyles.actionButtonText}>Sửa</Text>
           </TouchableOpacity>
@@ -235,9 +286,11 @@ export default function SalesScreen() {
                     <Ionicons name="folder-open-outline" size={30} color="#F59E0B" />
                   </TouchableOpacity>
                 )}
-                {canManage && (
-                  <TouchableOpacity onPress={() => handleOpenModal(null)} style={styles.salesStyles.addButton}>
-                    <Ionicons name="add-circle-outline" size={30} color="#10B981" />
+                {currentUser?.role !== 'thukho' && canManage && (
+                  // [SỬA] Thay đổi nút thêm sản phẩm từ icon thành nút có chữ rõ ràng hơn
+                  <TouchableOpacity onPress={() => handleOpenModal(null)} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }}>
+                    <Ionicons name="add" size={20} color={COLORS.white} />
+                    <Text style={{ color: COLORS.white, fontWeight: 'bold', marginLeft: 5, fontSize: 14 }}>Thêm mới</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -252,7 +305,7 @@ export default function SalesScreen() {
             </View>
             <View style={{ flexDirection: 'row', marginBottom: 15, alignItems: 'center' }}>
               <Text style={{ fontWeight: '600', marginRight: 10 }}>Danh mục:</Text>
-              <ScrollView horizontal style={{ flexDirection: 'row' }} showsHorizontalScrollIndicator={false}>
+              <ScrollView horizontal contentContainerStyle={{ flexDirection: 'row' }} showsHorizontalScrollIndicator={false}>
                 <TouchableOpacity
                   onPress={() => setSelectedCategoryId(null)}
                   style={{ padding: 8, backgroundColor: selectedCategoryId === null ? '#10B981' : '#E5E7EB', borderRadius: 8, marginRight: 8 }}
@@ -288,8 +341,9 @@ export default function SalesScreen() {
             <View style={styles.salesStyles.header}>
               <Text style={styles.salesStyles.headerTitle}>Quản lý Đơn hàng</Text>
               {canCreateOrder && (
-                <TouchableOpacity onPress={() => handleOpenOrderModal(null)} style={styles.salesStyles.addButton}>
-                  <Ionicons name="add-circle-outline" size={30} color="#10B981" />
+                <TouchableOpacity onPress={() => handleOpenOrderModal(null)} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }}>
+                  <Ionicons name="add" size={20} color={COLORS.white} />
+                  <Text style={{ color: COLORS.white, fontWeight: 'bold', marginLeft: 5, fontSize: 14 }}>Tạo đơn</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -335,6 +389,28 @@ export default function SalesScreen() {
         }}
         isSuccessModal={isSuccessModal}
       />
+      {/* Modal phân công cho Thủ kho */}
+      <Modal visible={isAssignToWHManagerModalVisible} transparent={true} animationType="slide" onRequestClose={() => setAssignToWHManagerModalVisible(false)}>
+        <View style={styles.salesStyles.modalOverlay}>
+          <View style={styles.salesStyles.modalView}>
+            <Text style={styles.salesStyles.modalTitle}>Giao việc cho Thủ kho</Text>
+            <Text style={{ marginBottom: 20 }}>Đơn hàng: {orderToAssignToWHManager?.id.slice(-6).toUpperCase()}</Text>
+            <CustomPicker
+              iconName="person-outline"
+              placeholder="-- Chọn thủ kho --"
+              items={warehouseManagers.map(s => ({ label: s.displayName, value: s.uid }))}
+              selectedValue={null} // Để trống ban đầu
+              onValueChange={(value: string) => {
+                if (value) handleAssignToWarehouseManager(value);
+              }}
+              enabled={true}
+            />
+            <View style={[styles.salesStyles.modalButtons, {marginTop: 20}]}>
+              <TouchableOpacity style={[styles.staffStyles.modalButton, styles.staffStyles.modalButtonSecondary, {flex: 1}]} onPress={() => setAssignToWHManagerModalVisible(false)}><Text style={styles.staffStyles.modalButtonText}>Đóng</Text></TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }

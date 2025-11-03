@@ -83,6 +83,16 @@ export class StaffService {
     return snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })) as StaffUser[];
   }
 
+  static async getStaffByRole(role: UserRole): Promise<StaffUser[]> {
+    const q = query(usersCollectionRef, where('role', '==', role));
+    const querySnapshot = await getDocs(q);
+    const staffList: StaffUser[] = [];
+    querySnapshot.forEach((doc) => {
+      staffList.push({ uid: doc.id, ...doc.data() } as StaffUser);
+    });
+    return staffList;
+  }
+
   
   static async updateStaff(uid: string, data: Partial<StaffUser>) {
     await updateDoc(doc(db, 'user', uid), data);

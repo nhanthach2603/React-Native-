@@ -74,9 +74,11 @@ service cloud.firestore {
       
       // UPDATE:
       // - Trưởng phòng (truongphong) có thể cập nhật tất cả các trường.
-      // - Thủ kho (thukho) chỉ được phép cập nhật trường 'quantity'.
+      // - Thủ kho (thukho) và Nhân viên kho (nhanvienkho) chỉ được phép cập nhật trường 'variants' và 'totalQuantity' (khi trừ kho).
       allow update: if hasRole('truongphong') || 
-                      (hasRole('thukho') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['quantity']));
+                      ( (hasRole('thukho') || hasRole('nhanvienkho')) && 
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['variants', 'totalQuantity'])
+                      );
     }
     
     // --- COLLECTION: categories ---
@@ -103,8 +105,9 @@ service cloud.firestore {
       
       // UPDATE:
       // - Trưởng phòng (truongphong) và Nhân viên kinh doanh (nhanvienkd) có thể sửa đơn hàng.
-      // - Thủ kho (thukho) có thể sửa đơn hàng (để cập nhật trạng thái hoặc gán nhân viên).
-      allow update: if hasRole('truongphong') || hasRole('nhanvienkd') || hasRole('thukho');
+      // - Thủ kho (thukho) và Nhân viên kho (nhanvienkho) có thể sửa đơn hàng (để cập nhật trạng thái).
+      // [SỬA LỖI] Thêm 'nhanvienkho' vào danh sách được phép cập nhật đơn hàng.
+      allow update: if hasRole('truongphong') || hasRole('nhanvienkd') || hasRole('thukho') || hasRole('nhanvienkho');
       
       // DELETE: Chỉ Trưởng phòng (truongphong) mới được xóa đơn hàng.
       allow delete: if hasRole('truongphong');

@@ -381,7 +381,7 @@ export default function ProfileScreen() {
           <Ionicons name="arrow-back" size={28} color="#333" />
         </TouchableOpacity>
         {/* Đảm bảo không có text node nào bị lạc trực tiếp bên trong View */}
-        <Text style={[styles.staffStyles.headerTitle, { marginBottom: 0 }]}>Thông tin cá nhân</Text> 
+        <Text style={[styles.staffStyles.headerTitle, { marginBottom: 0 }]}>Thông tin cá nhân</Text>
         <TouchableOpacity onPress={handleLogout} style={{ padding: 5 }}>
           {/* Bọc Ionicons trong một View để tránh các vấn đề về text node không mong muốn */}
           <View><Ionicons name="log-out-outline" size={28} color={COLORS.error} /></View>

@@ -1,5 +1,6 @@
 // app/(tabs)/warehouse.tsx
 
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,26 +12,16 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CustomPicker } from '../../components/CustomPicker';
 import { useAuth } from '../../context/AuthContext';
 import { Order, OrderService, OrderStatus } from '../../services/OrderService';
 import { StaffService, StaffUser } from '../../services/StaffService';
 import { COLORS, styles } from '../../styles/homeStyle';
-import { CustomPicker } from './staff';
-
-const WAREHOUSE_STATUS_SEQUENCE: OrderStatus[] = ['Assigned', 'Processing', 'Completed'];
-
-const getNextStatus = (currentStatus: OrderStatus): OrderStatus | null => {
-  const currentIndex = WAREHOUSE_STATUS_SEQUENCE.indexOf(currentStatus);
-  if (currentIndex !== -1 && currentIndex < WAREHOUSE_STATUS_SEQUENCE.length - 1) {
-    return WAREHOUSE_STATUS_SEQUENCE[currentIndex + 1];
-  }
-  return null;
-};
 
 const getActionText = (status: OrderStatus): string => {
   switch (status) {
-    case 'Assigned': return 'Bắt đầu soạn hàng';
-    case 'Processing': return 'Hoàn thành soạn hàng';
+    case 'Assigned': return 'Soạn hàng';
+    case 'Processing': return 'Tiếp tục soạn';
     default: return '';
   }
 };
@@ -44,12 +35,14 @@ export default function WarehouseScreen() {
   const [isAssignModalVisible, setAssignModalVisible] = useState(false);
   const [orderToAssign, setOrderToAssign] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
   const role = currentUser?.role; // Lấy role từ currentUser
 
   useEffect(() => {
     let unsubscribe: () => void;
     if (role === 'thukho') {
-      unsubscribe = OrderService.subscribeToWarehouseOrders((ordersData) => {
+      // Thủ kho chỉ thấy đơn hàng được giao cho mình
+      unsubscribe = OrderService.subscribeToWarehouseOrders(user!.uid, (ordersData) => {
         setOrders(ordersData);
         setLoading(false);
       });
@@ -66,7 +59,8 @@ export default function WarehouseScreen() {
     } else {
       // Trưởng phòng cũng có thể vào xem
       if (role === 'truongphong') {
-        unsubscribe = OrderService.subscribeToWarehouseOrders(setOrders);
+        // [SỬA LỖI] Kích hoạt lại việc lấy tất cả đơn hàng trong kho cho Trưởng phòng
+        unsubscribe = OrderService.subscribeToAllWarehouseOrders(setOrders);
       }
       setLoading(false);
       setOrders([]);
@@ -79,14 +73,15 @@ export default function WarehouseScreen() {
   }, [role, user, currentUser]);
 
   const handleUpdateStatus = async (order: Order) => {
-    const nextStatus = getNextStatus(order.status);
-    if (!nextStatus) return;
-
-    try {
-      await OrderService.updateOrder(order.id, { status: nextStatus });
-      Alert.alert('Thành công', `Đã cập nhật trạng thái đơn hàng.`);
-    } catch (e: any) {
-      Alert.alert('Lỗi', e.message || 'Không thể cập nhật trạng thái đơn hàng.');
+    // [SỬA LỖI] Dọn dẹp logic, đảm bảo điều hướng đến màn hình soạn hàng
+    if (order.status === 'Assigned') {
+      // Chuyển trạng thái sang 'Processing' trước khi vào màn hình soạn
+      await OrderService.updateOrder(order.id, { status: 'Processing' });
+      // Điều hướng đến màn hình soạn hàng
+      router.push({ pathname: '/picking', params: { order: JSON.stringify(order) } });
+    } else if (order.status === 'Processing') {
+      // Nếu đang soạn dở, vẫn cho phép vào lại màn hình soạn
+      router.push({ pathname: '/picking', params: { order: JSON.stringify(order) } });
     }
   };
 
@@ -133,7 +128,7 @@ export default function WarehouseScreen() {
         data={item.items}
         keyExtractor={(product, index) => index.toString()}
         renderItem={({ item: productItem }) => (
-          <Text style={styles.warehouseStyles.itemDetail}>- {productItem.name} ({productItem.qty})</Text>
+          <Text style={styles.warehouseStyles.itemDetail}>- {productItem.productName} ({productItem.qty})</Text>
         )}
       />
       {/* Nút cho Thủ kho */}
@@ -145,7 +140,7 @@ export default function WarehouseScreen() {
         </View>
       )}
       {/* Nút cho Nhân viên kho */}
-      {role === 'nhanvienkho' && getNextStatus(item.status) && (
+      {role === 'nhanvienkho' && (item.status === 'Assigned' || item.status === 'Processing') && (
         <View style={styles.warehouseStyles.actionButtons}>
           <TouchableOpacity onPress={() => handleUpdateStatus(item)} style={[styles.warehouseStyles.actionButton, { backgroundColor: COLORS.secondary }]}>
             <Text style={styles.warehouseStyles.actionButtonText}>{getActionText(item.status)}</Text>
@@ -160,6 +155,7 @@ export default function WarehouseScreen() {
       case 'Confirmed': return '#F59E0B';
       case 'Assigned': return '#3B82F6';
       case 'Processing': return '#8B5CF6';
+      case 'PendingRevision': return '#EF4444';
       case 'Completed': return '#0E7490';
       case 'Shipped': return '#10B981';
       case 'Canceled': return '#EF4444';

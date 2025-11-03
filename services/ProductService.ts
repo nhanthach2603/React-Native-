@@ -17,16 +17,24 @@ export interface Category {
   name: string;
 }
 
+export interface ProductVariant {
+  color?: string; // Màu sắc, có thể không có
+  size: string;    // Kích thước, bắt buộc
+  quantity: number;
+}
+
 export interface Product {
   id?: string;
   name: string;
   sku: string;
-  quantity: number;
+  // quantity: number; // Sẽ thay thế bằng variants
+  totalQuantity: number; // Tổng số lượng của tất cả variants
   unit: string;
   price: number;
   category: string;
   lastUpdatedBy?: string;
   updatedAt?: string;
+  variants: ProductVariant[]; // Mảng chứa các biến thể
 }
 
 const productsCollectionRef = collection(db, 'products');

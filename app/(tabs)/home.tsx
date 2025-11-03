@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'; // Thêm ScrollView
 import { useAuth, UserRole } from '../../context/AuthContext';
+import { OrderService } from '../../services/OrderService';
 import { Product, ProductService } from '../../services/ProductService'; // Import Product Service
 import { styles } from '../../styles/homeStyle';
 
@@ -39,7 +40,7 @@ const StatCard: React.FC<StatCardProps> = ({ iconName, iconColor, number, label,
   </TouchableOpacity>
 );
 
-const renderRoleSpecificStats = (currentUser: any | null) => {
+const RoleSpecificStats = ({ currentUser }: { currentUser: any | null }) => {
   const role = currentUser?.role;
   // Logic mới: Xác định là Tổng quản lý bằng cách kiểm tra managerId là null
   if (currentUser?.managerId === null || currentUser?.role === 'quanlynhansu') {
@@ -87,6 +88,17 @@ const renderRoleSpecificStats = (currentUser: any | null) => {
         </View>
       );
     case 'nhanvienkho':
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      const [completedOrdersCount, setCompletedOrdersCount] = useState(0);
+
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      useEffect(() => {
+        if (currentUser?.uid) {
+          OrderService.getCompletedOrdersForStaffByMonth(currentUser.uid).then(orders => {
+            setCompletedOrdersCount(orders.length);
+          });
+        }
+      }, [currentUser]);
       return (
         <View style={styles.homeStyles.statContainer}>
           <StatCard
@@ -99,9 +111,9 @@ const renderRoleSpecificStats = (currentUser: any | null) => {
           <StatCard
             iconName="archive-outline"
             iconColor="#374151"
-            number={45}
+            number={completedOrdersCount}
             label="Đơn hàng đã soạn xong (Tháng)"
-            onPress={() => router.navigate('/(tabs)/warehouse')}
+            onPress={() => router.push({ pathname: '/completed-orders', params: { staffUid: currentUser.uid, staffName: currentUser.displayName } })}
           />
         </View>
       );
@@ -196,8 +208,8 @@ export default function HomeScreen() {
       <Ionicons name="pricetag-outline" size={20} color="#0E7490" />
       <View style={{marginLeft: 10, flex: 1, flexDirection: 'row', justifyContent: 'space-between'}}>
         <Text style={styles.homeStyles.notificationText}>{item.name} ({item.sku})</Text>
-        <Text style={[styles.homeStyles.notificationText, {fontWeight: 'bold', color: item.quantity <= 5 ? '#EF4444' : '#10B981'}]}>
-          Tồn: {item.quantity} {item.unit}
+        <Text style={[styles.homeStyles.notificationText, {fontWeight: 'bold', color: item.totalQuantity <= 5 ? '#EF4444' : '#10B981'}]}>
+          Tồn: {item.totalQuantity} {item.unit}
         </Text>
       </View>
     </View>
@@ -230,7 +242,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         <Text style={styles.homeStyles.sectionTitle}>Thông tin Tổng quan</Text>
-        {renderRoleSpecificStats(currentUser)}
+        <RoleSpecificStats currentUser={currentUser} />
         
         <Text style={[styles.homeStyles.sectionTitle, {marginTop: 30}]}>Thông báo & Tồn kho</Text>
 
@@ -243,7 +255,7 @@ export default function HomeScreen() {
         {/* Thanh tìm kiếm */}
         <View style={styles.homeStyles.searchContainer}>
           <Ionicons name="search" size={20} color="#6B7280" />
-           <TextInput
+          <TextInput
             placeholder="Tìm kiếm sản phẩm theo tên hoặc SKU..."
             placeholderTextColor="#9CA3AF"
             value={searchText}

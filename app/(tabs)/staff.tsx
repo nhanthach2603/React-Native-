@@ -1,7 +1,7 @@
 // app/(tabs)/staff.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { doc, DocumentData, getDoc } from 'firebase/firestore';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react'; // Giữ lại React
 import {
   ActivityIndicator,
   Alert,
@@ -11,7 +11,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +20,7 @@ import { useAuth, UserRole } from '../../context/AuthContext';
 import { StaffService, StaffUser } from '../../services/StaffService';
 import { COLORS, styles } from '../../styles/homeStyle';
 
+import { CustomPicker } from '../../components/CustomPicker'; // Import từ file mới
 interface CalendarDay {
   dateString: string;
   day: number;
@@ -62,39 +63,6 @@ interface StaffModalProps {
   managers: StaffUser[];
 }
 
-export const CustomPicker: React.FC<any> = ({ iconName, items, selectedValue, onValueChange, placeholder, enabled }) => {
-  const [modalVisible, setModalVisible] = useState(false);
-  const selectedLabel = items.find((item: any) => item.value === selectedValue)?.label || placeholder;
-
-  const handleSelect = (value: string | null) => {
-    onValueChange(value);
-    setModalVisible(false);
-  };
-
-  return (
-    <>
-      <View style={[styles.staffStyles.modalInputGroup, !enabled && { backgroundColor: '#E5E7EB' }]}>
-        <Ionicons name={iconName} size={20} color={COLORS.text_secondary} style={styles.staffStyles.modalInputIcon} />
-        <TouchableOpacity style={styles.staffStyles.pickerTouchable} onPress={() => enabled && setModalVisible(true)} disabled={!enabled}>
-          <Text style={selectedValue ? styles.staffStyles.pickerValue : styles.staffStyles.pickerPlaceholder}>{selectedLabel}</Text>
-          <Ionicons name="chevron-down-outline" size={20} color={COLORS.text_secondary} />
-        </TouchableOpacity>
-      </View>
-      <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
-        <TouchableOpacity style={styles.staffStyles.pickerModalOverlay} onPress={() => setModalVisible(false)}>
-          <View style={styles.staffStyles.pickerModalContent}>
-            <FlatList data={items} keyExtractor={(item) => String(item.value)} renderItem={({ item }) => (
-              <TouchableOpacity style={styles.staffStyles.pickerItem} onPress={() => handleSelect(item.value)}>
-                <Text style={styles.staffStyles.pickerItemText}>{item.label}</Text>
-              </TouchableOpacity>
-            )} />
-          </View>
-        </TouchableOpacity>
-      </Modal>
-    </>
-  );
-};
-
 const StaffModal: React.FC<StaffModalProps> = ({ isVisible, onClose, staffToEdit, onSave, managers }) => {
   const { currentUser } = useAuth();
   const [email, setEmail] = useState('');
@@ -129,6 +97,7 @@ const StaffModal: React.FC<StaffModalProps> = ({ isVisible, onClose, staffToEdit
     if (!isoString) return 'Chưa có';
     try {
       return new Date(isoString).toLocaleDateString('vi-VN');
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e) {
       return isoString;
     }
@@ -481,9 +450,11 @@ export default function StaffScreen() {
 
   const renderStaffItem = ({ item }: { item: StaffUser }) => {
     const isTopLevelManager = currentUser?.role === 'quanlynhansu';
-    const isMidLevelManager = currentUser?.role === 'truongphong' || currentUser?.role === 'thukho';
-    const canEdit = isTopLevelManager || (isMidLevelManager && (item.managerId === currentUser?.uid || item.role === 'unassigned'));
-    const canDelete = isTopLevelManager;
+    const isMidLevelManager = currentUser?.role === 'truongphong' || currentUser?.role === 'thukho';    
+    // Điều kiện để có thể chỉnh sửa
+    const canEdit = isTopLevelManager || (isMidLevelManager && (item.managerId === currentUser?.uid || item.role === 'unassigned'));    
+    // Điều kiện để có thể xóa
+    const canDelete = isTopLevelManager; 
 
     return (
       <View style={styles.staffStyles.baseCard}>
@@ -502,9 +473,9 @@ export default function StaffScreen() {
         )}
         {(isTopLevelManager || isMidLevelManager) && (
           <View style={styles.staffStyles.actionButtons}>
-            <TouchableOpacity onPress={() => handleAssignSchedule(item)} style={styles.staffStyles.buttonIcon}><Ionicons name='calendar' size={24} color={COLORS.secondary} /></TouchableOpacity>
-            {canEdit && (<TouchableOpacity onPress={() => handleEditUser(item)} style={styles.staffStyles.buttonIcon}><Ionicons name='create' size={24} color={COLORS.accent} /></TouchableOpacity>)}
-            {canDelete && (<TouchableOpacity onPress={() => handleDeleteUser(item.uid)} style={styles.staffStyles.buttonIcon}><Ionicons name='trash' size={24} color={COLORS.error} /></TouchableOpacity>)}
+            <TouchableOpacity onPress={() => handleAssignSchedule(item)} style={styles.staffStyles.buttonIcon}><View><Ionicons name='calendar' size={24} color={COLORS.secondary} /></View></TouchableOpacity>
+            {canEdit && (<TouchableOpacity onPress={() => handleEditUser(item)} style={styles.staffStyles.buttonIcon}><View><Ionicons name='create' size={24} color={COLORS.accent} /></View></TouchableOpacity>)}
+            {canDelete && (<TouchableOpacity onPress={() => handleDeleteUser(item.uid)} style={styles.staffStyles.buttonIcon}><View><Ionicons name='trash' size={24} color={COLORS.error} /></View></TouchableOpacity>)}
           </View>
         )}
       </View>
@@ -563,6 +534,13 @@ export default function StaffScreen() {
       setSelectedDate(newWeekStart); // Chọn ngày đầu tuần mới
     };
 
+    const handleGoToToday = () => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      setCurrentWeekStart(today);
+      setSelectedDate(today);
+    };
+
     const handleDateSelect = (day: CalendarDay) => {
       const newSelectedDate = new Date(day.dateString);
       const dayOfWeek = newSelectedDate.getDay();
@@ -591,7 +569,7 @@ export default function StaffScreen() {
     const canCheckInToday = todaySchedule && todaySchedule.shift !== 'Nghỉ';
 
     return (
-      <ScrollView style={styles.staffStyles.scrollContainer}>
+      <ScrollView style={styles.staffStyles.scrollContainer} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
         <Text style={styles.staffStyles.headerTitle}>Thông tin Cá nhân</Text>
         <View style={styles.staffStyles.summaryCard}>
           <View style={styles.staffStyles.summaryRow}><Ionicons name='cash-outline' size={24} color={COLORS.primary} /><Text style={styles.staffStyles.summaryText}>Lương dự kiến (Tháng): <Text style={styles.staffStyles.boldText}>{data.monthlySalary ? data.monthlySalary.toLocaleString('vi-VN') : '0'} VND</Text></Text></View>
@@ -604,60 +582,59 @@ export default function StaffScreen() {
           <TouchableOpacity onPress={() => setViewMode('month')} style={[styles.staffStyles.viewModeButton, viewMode === 'month' && styles.staffStyles.viewModeButtonActive]}><Text style={[styles.staffStyles.viewModeText, viewMode === 'month' && styles.staffStyles.viewModeTextActive]}>Xem theo Tháng</Text></TouchableOpacity>
         </View>
         {viewMode === 'week' && (
-          <>
-            <View style={[styles.staffStyles.dayNavigationContainer, { paddingHorizontal: 20, marginBottom: 20 }]}>
-              <TouchableOpacity onPress={handlePreviousWeek} style={styles.staffStyles.dayNavigationButton}>
-                <Ionicons name="chevron-back-outline" size={24} color={COLORS.text_primary} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setDatePickerVisible(true)}>
-                <Text style={styles.staffStyles.dayNavigationText}>{currentWeekStart.toLocaleDateString('vi-VN')} - {weekDays[6].toLocaleDateString('vi-VN')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleNextWeek} style={styles.staffStyles.dayNavigationButton}>
-                <Ionicons name="chevron-forward-outline" size={24} color={COLORS.text_primary} />
+          // [SỬA] Gom toàn bộ phần xem tuần vào một thẻ lớn
+          <View style={styles.staffStyles.scheduleWeekViewCard}>
+            <View style={styles.staffStyles.dayNavigationContainer}>
+                <TouchableOpacity onPress={handlePreviousWeek} style={styles.staffStyles.dayNavigationButton}>
+                  <Ionicons name="chevron-back-outline" size={24} color={COLORS.text_primary} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setDatePickerVisible(true)}>
+                  <Text style={styles.staffStyles.dayNavigationText}>{currentWeekStart.toLocaleDateString('vi-VN')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleNextWeek} style={styles.staffStyles.dayNavigationButton}>
+                  <Ionicons name="chevron-forward-outline" size={24} color={COLORS.text_primary} />
+                </TouchableOpacity>
+            </View>
+            <View style={styles.staffStyles.todayButtonContainer}>
+              <TouchableOpacity onPress={handleGoToToday} style={styles.staffStyles.todayButton}>
+                  <Text style={styles.staffStyles.todayButtonText}>Về Hôm Nay</Text>
               </TouchableOpacity>
             </View>
-            <Modal
-              animationType="fade"
-              transparent={true}
-              visible={isDatePickerVisible}
-              onRequestClose={() => setDatePickerVisible(false)}
-            >
-              <TouchableOpacity style={styles.salesStyles.modalOverlay} onPress={() => setDatePickerVisible(false)}>
-                <View style={[styles.salesStyles.modalView, { width: '95%' }]}>
-                  <Calendar
-                    onDayPress={handleDateSelect}
-                    markedDates={{ [selectedDayString]: { selected: true, selectedColor: COLORS.primary } }}
-                  />
-                </View>
-              </TouchableOpacity>
-            </Modal>
             <View style={styles.staffStyles.weekContainer}>
               {weekDays.map((day, index) => {
                 const dayString = day.toISOString().slice(0, 10);
                 const isSelected = dayString === selectedDayString;
                 const schedule = data.schedule?.[dayString];
-                const today = new Date();
-                today.setHours(0, 0, 0, 0); // Chuẩn hóa về đầu ngày hôm nay
-                const isPastDay = day < today; // So sánh với ngày đã được chuẩn hóa
+                const isToday = dayString === todayString;
                 return (
-                  <TouchableOpacity key={index} style={[styles.staffStyles.weekDayBox, isSelected && styles.staffStyles.weekDayBoxSelected, isPastDay && { backgroundColor: COLORS.bg_main }]} onPress={() => setSelectedDate(day)}>
-                    <Text style={[styles.staffStyles.weekDayText, isSelected && { color: COLORS.white }, isPastDay && !isSelected && styles.staffStyles.weekDayTextPast]}>{['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][day.getDay()]}</Text>
-                    <Text style={[styles.staffStyles.weekDateText, isSelected && { color: COLORS.white, fontWeight: 'bold' }, isPastDay && !isSelected && styles.staffStyles.weekDayTextPast]}>{day.getDate()}</Text>
+                  <TouchableOpacity key={index} style={[styles.staffStyles.weekDayBox, isSelected && styles.staffStyles.weekDayBoxSelected, isToday && styles.staffStyles.weekDayBoxToday]} onPress={() => setSelectedDate(day)}>
+                    <Text style={[styles.staffStyles.weekDayText, isSelected && styles.staffStyles.weekDayTextSelected]}>{['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][day.getDay()]}</Text>
+                    <Text style={[styles.staffStyles.weekDateText, isSelected && styles.staffStyles.weekDateTextSelected]}>{day.getDate()}</Text>
+                    {isToday && !isSelected && <View style={styles.staffStyles.todayIndicator} />}
                     {schedule && <View style={[styles.staffStyles.scheduleDot, { backgroundColor: SHIFT_COLORS[schedule.shift as keyof typeof SHIFT_COLORS] || COLORS.text_secondary }]} />}
                   </TouchableOpacity>
                 );
               })}
             </View>
             <View style={styles.staffStyles.scheduleDetailsCard}>
-              <Text style={styles.staffStyles.scheduleTitle}>Chi tiết ngày: {selectedDate.toLocaleDateString('vi-VN')}</Text>
+              <Text style={styles.staffStyles.scheduleTitle}>
+                <Ionicons name="information-circle-outline" size={20} color={COLORS.text_primary} style={{ marginRight: 8 }} />
+                Chi tiết ngày: {selectedDate.toLocaleDateString('vi-VN')}
+              </Text>
               {selectedDaySchedule ? (
                 <View>
-                  <Text style={styles.staffStyles.detailText}>Ca làm việc: <Text style={styles.staffStyles.boldText}>{selectedDaySchedule.shift}</Text></Text>
-                  <Text style={styles.staffStyles.detailText}>Ghi chú: <Text style={styles.staffStyles.boldText}>{selectedDaySchedule.note || 'Không có'}</Text></Text>
+                  <View style={styles.staffStyles.scheduleDetailRow}>
+                    <Ionicons name="time-outline" size={20} color={COLORS.secondary} />
+                    <Text style={styles.staffStyles.detailText}>Ca làm việc: <Text style={styles.staffStyles.boldText}>{selectedDaySchedule.shift}</Text></Text>
+                  </View>
+                  <View style={styles.staffStyles.scheduleDetailRow}>
+                    <Ionicons name="document-text-outline" size={20} color={COLORS.accent} />
+                    <Text style={styles.staffStyles.detailText}>Ghi chú: <Text style={styles.staffStyles.boldText}>{selectedDaySchedule.note || 'Không có'}</Text></Text>
+                  </View>
                 </View>
               ) : (<Text style={styles.staffStyles.noScheduleText}>Không có lịch làm việc cho ngày này.</Text>)}
             </View>
-          </>
+          </View>
         )}
         {viewMode === 'month' && (
           <>
@@ -678,6 +655,21 @@ export default function StaffScreen() {
             )) : (<Text style={styles.staffStyles.noScheduleText}>Bạn chưa có lịch làm việc nào.</Text>)}
           </>
         )}
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={isDatePickerVisible}
+          onRequestClose={() => setDatePickerVisible(false)}
+        >
+          <TouchableOpacity style={styles.salesStyles.modalOverlay} onPress={() => setDatePickerVisible(false)}>
+            <View style={[styles.salesStyles.modalView, { width: '95%' }]}>
+              <Calendar
+                onDayPress={handleDateSelect}
+                markedDates={{ [selectedDayString]: { selected: true, selectedColor: COLORS.primary } }}
+              />
+            </View>
+          </TouchableOpacity>
+        </Modal>
         {/* Legend */}
         <View style={styles.staffStyles.legendContainer}>
           {Object.entries(SHIFT_COLORS).map(([shiftName, color]) => (
@@ -686,10 +678,6 @@ export default function StaffScreen() {
               <Text style={styles.staffStyles.legendText}>{shiftName}</Text>
             </View>
           ))}
-          <View style={styles.staffStyles.legendItem}>
-            <View style={[styles.staffStyles.colorDot, { backgroundColor: COLORS.bg_main }]} />
-            <Text style={styles.staffStyles.legendText}>Ngày đã qua</Text>
-          </View>
         </View>
         <View style={{ height: 30 }} />
       </ScrollView>

@@ -1,0 +1,11 @@
+[
+  { "id": "cat_01", "name": "Áo Sơ Mi" },
+  { "id": "cat_02", "name": "Áo Thun" },
+  { "id": "cat_03", "name": "Áo Polo" },
+  { "id": "cat_04", "name": "Quần Jeans" },
+  { "id": "cat_05", "name": "Quần Kaki" },
+  { "id": "cat_06", "name": "Váy" },
+  { "id": "cat_07", "name": "Chân Váy" },
+  { "id": "cat_08", "name": "Áo Khoác" },
+  { "id": "cat_09", "name": "Phụ Kiện" }
+]
