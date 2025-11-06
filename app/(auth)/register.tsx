@@ -1,5 +1,6 @@
 // app/(auth)/register.tsx
 import { Ionicons } from '@expo/vector-icons';
+import { Functions } from 'appwrite';
 import { Link, router, Stack } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -10,10 +11,10 @@ import {
   TextInput,
   TouchableOpacity,
   View
-} from 'react-native'; // Đảm bảo ScrollView được import từ 'react-native'
+} from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { UserService } from '../../services/UserService';
+import { account, client } from '../../config/appwrite'; // Import account and client
 import { COLORS, styles } from '../../styles/homeStyle';
 
 export default function RegisterScreen() {
@@ -25,12 +26,12 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [isCalendarVisible, setCalendarVisible] = useState(false);
-  const [isPasswordVisible, setPasswordVisible] = useState(false); // State để ẩn/hiện mật khẩu
-  const [error, setError] = useState(''); // Thêm state để lưu lỗi
+  const [isPasswordVisible, setPasswordVisible] = useState(false);
+  const [error, setError] = useState('');
   const insets = useSafeAreaInsets();
 
   const handleRegister = async () => {
-    setError(''); // Reset lỗi mỗi khi bấm nút
+    setError('');
     if (!email || !password || !displayName || !confirmPassword || !phoneNumber || !dateOfBirth) {
       setError('Vui lòng điền đầy đủ tất cả các trường.');
       return;
@@ -43,13 +44,11 @@ export default function RegisterScreen() {
       setError('Mật khẩu và xác nhận mật khẩu không khớp.');
       return;
     }
-    // Bắt lỗi định dạng ngày sinh
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(dateOfBirth)) {
       setError('Định dạng ngày sinh không hợp lệ. Vui lòng chọn lại từ lịch.');
       return;
     }
-    // [SỬA] Sửa lại regex để xác thực đúng định dạng số điện thoại Việt Nam (10 số)
     const phoneRegex = /^(0(3|5|7|8|9))\d{8}$/;
     if (!phoneRegex.test(phoneNumber)) {
         setError('Số điện thoại không hợp lệ. Vui lòng nhập đúng 10 số.');
@@ -58,23 +57,40 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      await UserService.createUser({
+      const functions = new Functions(client);
+      const payload = {
         email,
         password,
-        displayName,
+        name: displayName,
         phoneNumber,
         dateOfBirth,
-      });
+      };
 
-      // Đăng ký thành công, chuyển người dùng đến màn hình chờ duyệt.
-      router.replace('/pending');
+      // IMPORTANT: Replace with your actual function ID from the Appwrite console
+      const execution = await functions.createExecution(
+        '[YOUR_CREATE_USER_FUNCTION_ID]', 
+        JSON.stringify(payload)
+      );
+
+      if (execution.status === 'completed') {
+        const response = JSON.parse(execution.responseBody);
+        if (response.ok) {
+          // Function succeeded, now log the user in
+          await account.createEmailPasswordSession(email, password);
+          // The AuthProvider will handle the user state, and the router will redirect
+          router.replace('/pending');
+        } else {
+          // The function returned an error (e.g., user already exists)
+          throw new Error(response.message);
+        }
+      } else {
+        // The function execution itself failed
+        const response = JSON.parse(execution.responseBody);
+        throw new Error(response.message || `Function execution failed with status: ${execution.status}`);
+      }
     } catch (error: any) {
       console.error('Lỗi đăng ký:', error);
-      if (error.code === 409) { // User with the same email already exists
-        setError('Email này đã được sử dụng.');
-      } else {
-        setError(error.message || 'Đã có lỗi xảy ra trong quá trình đăng ký.');
-      }
+      setError(error.message || 'Đã có lỗi xảy ra trong quá trình đăng ký.');
     } finally {
       setLoading(false);
     }
@@ -86,7 +102,6 @@ export default function RegisterScreen() {
       contentContainerStyle={[styles.authStyles.registerContainer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
       keyboardShouldPersistTaps="handled"
     >
-        {/* Ẩn thanh tiêu đề mặc định của navigator */}
         <Stack.Screen options={{ headerShown: false }} />
 
         <View style={styles.authStyles.formContainer}>
@@ -140,11 +155,11 @@ export default function RegisterScreen() {
                 <View style={styles.salesStyles.modalView}>
                 <Calendar
                     onDayPress={(day) => {
-                    setDateOfBirth(day.dateString); // day.dateString có định dạng 'YYYY-MM-DD'
+                    setDateOfBirth(day.dateString);
                     setCalendarVisible(false);
                     }}
                     markedDates={{ [dateOfBirth]: { selected: true, selectedColor: COLORS.primary } }}
-                    maxDate={new Date().toISOString().split('T')[0]} // Chỉ cho phép chọn ngày trong quá khứ
+                    maxDate={new Date().toISOString().split('T')[0]}
                 />
                 </View>
             </TouchableOpacity>

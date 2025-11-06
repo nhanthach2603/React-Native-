@@ -1,25 +1,24 @@
 // functions/createUser/src/index.ts
 import { Client, Users, ID } from 'node-appwrite';
 
-// This is your Appwrite function
-// It's executed each time we get a request
 export default async ({ req, res, log, error }: any) => {
-  // Why not try to parse the body?
   if (!req.body) {
     const message = "Missing body.";
     error(message);
     return res.json({ ok: false, message }, 400);
   }
 
-  const { email, password, name } = req.body;
+  // Get the data from the request body
+  const { email, password, name, phoneNumber, dateOfBirth } = req.body;
 
-  if (!email || !password || !name) {
-    const message = "Missing required fields: email, password, name.";
+  // Validate the data
+  if (!email || !password || !name || !phoneNumber || !dateOfBirth) {
+    const message = "Missing required fields: email, password, name, phoneNumber, dateOfBirth.";
     error(message);
     return res.json({ ok: false, message }, 400);
   }
 
-  // Initialization
+  // Initialize the Appwrite client
   const client = new Client()
     .setEndpoint(process.env.APPWRITE_ENDPOINT as string)
     .setProject(process.env.APPWRITE_PROJECT_ID as string)
@@ -28,7 +27,7 @@ export default async ({ req, res, log, error }: any) => {
   const users = new Users(client);
 
   try {
-    // Create user
+    // Create the user
     const user = await users.create(
       ID.unique(),
       email,
@@ -39,8 +38,14 @@ export default async ({ req, res, log, error }: any) => {
 
     log(`User created: ${user.$id}`);
 
-    // You can do more things here, like adding the user to a team
-    // or setting preferences.
+    // Update user preferences
+    const formattedPhoneNumber = `+84${phoneNumber.substring(1)}`;
+    await users.updatePrefs(user.$id, {
+      phone: formattedPhoneNumber,
+      dateOfBirth: dateOfBirth,
+    });
+
+    log(`Prefs updated for user: ${user.$id}`);
 
     return res.json({ ok: true, userId: user.$id });
   } catch (e: any) {
