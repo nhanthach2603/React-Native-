@@ -35,7 +35,11 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isVisible,
             {isSuccessModal ? (
               <TouchableOpacity style={[styles.staffStyles.modalButton, styles.staffStyles.modalButtonPrimary, { flex: 0.5 }]} onPress={onClose}><Text style={styles.staffStyles.modalButtonText}>Đóng</Text></TouchableOpacity>
             ) : (
-              <><TouchableOpacity style={[styles.staffStyles.modalButton, styles.staffStyles.modalButtonSecondary]} onPress={onClose}><Text style={styles.staffStyles.modalButtonText}>Hủy</Text></TouchableOpacity><TouchableOpacity style={[styles.staffStyles.modalButton, { backgroundColor: COLORS.error }]} onPress={onConfirm}><Text style={styles.staffStyles.modalButtonText}>Xác nhận</Text></TouchableOpacity></>
+              // [SỬA LỖI] Bọc các nút trong một View thay vì Fragment để tránh lỗi text node
+              <View style={{ flexDirection: 'row', justifyContent: 'space-around', flex: 1 }}>
+                <TouchableOpacity style={[styles.staffStyles.modalButton, styles.staffStyles.modalButtonSecondary]} onPress={onClose}><Text style={styles.staffStyles.modalButtonText}>Hủy</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.staffStyles.modalButton, { backgroundColor: COLORS.error }]} onPress={onConfirm}><Text style={styles.staffStyles.modalButtonText}>Xác nhận</Text></TouchableOpacity>
+              </View>
             )}
           </View>
         </View>

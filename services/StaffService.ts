@@ -1,17 +1,9 @@
 // services/StaffService.tsx
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  updateDoc,
-  where
-} from 'firebase/firestore';
-
-import { db } from '../config/firebase'; // Đảm bảo app được export từ firebase.ts
+import { Account, Databases, Functions, Query } from 'appwrite';
+import { account, config, databases, functions } from '../config/appwrite';
 import { UserRole } from '../context/AuthContext';
+import { ChatService } from './ChatService';
+
 export interface StaffUser {
   uid: string;
   email: string;
@@ -19,20 +11,61 @@ export interface StaffUser {
   role: UserRole;
   monthlyHours: number;
   monthlySalary: number;
-  managerId?: string | null; // Sửa ở đây: Đồng bộ kiểu dữ liệu thành string
+  managerId?: string | null;
   createdAt?: string;
   schedule?: { [date: string]: { shift: string; note: string } };
   phoneNumber?: string;
   dateOfBirth?: string;
   avatarUrl?: string;
   hourlyRate?: number;
+  address?: string;
 }
 
-const usersCollectionRef = collection(db, 'user');
-
 export class StaffService {
-  // Sửa đổi trong StaffService.ts: Thêm managerId của người dùng hiện tại để xác định quyền
-  static async getStaffList(
+  private databases: Databases;
+  private account: Account;
+  private functions: Functions;
+  private databaseId: string;
+  private userCollectionId: string;
+
+  constructor() {
+    this.databases = databases;
+    this.account = account;
+    this.functions = functions;
+    this.databaseId = config.databaseId;
+    this.userCollectionId = config.userCollectionId;
+  }
+
+  async resetPassword(email: string): Promise<void> {
+    try {
+      await this.account.createRecovery(email, 'YOUR_RESET_PASSWORD_URL'); // Replace with your actual reset password URL
+    } catch (error: any) {
+      console.error("Error in StaffService.resetPassword:", error);
+      throw new Error("Không thể gửi email đặt lại mật khẩu do lỗi không xác định.");
+    }
+  }
+
+  async getAllStaffWithSchedule(): Promise<StaffUser[]> {
+    try {
+      const response = await this.databases.listDocuments(
+        this.databaseId,
+        this.userCollectionId,
+        [
+          Query.notEqual('role', 'unassigned'),
+          Query.orderAsc('displayName') // Assuming a display name for ordering
+        ]
+      );
+      if (response.documents.length === 0) {
+        return [];
+      }
+      return response.documents.map(doc => ({ uid: doc.$id, ...doc as unknown as StaffUser }));
+    } catch (error) {
+      console.error("Error getting all staff with schedule: ", error);
+      throw new Error("Không thể tải danh sách nhân viên.");
+    }
+  }
+
+  async getStaffList(
     currentUserUid: string,
     currentUserRole: UserRole,
     currentUserManagerId: string | null | undefined
@@ -41,151 +74,158 @@ export class StaffService {
       return [];
     }
 
-    // [SỬA LỖI] Xác định Tổng quản lý một cách chính xác bằng cách kiểm tra managerId === null.
-    // Điều này tránh nhầm lẫn vai trò 'unassigned' với Tổng quản lý.
-    const isTopLevelManager = currentUserManagerId === null || currentUserRole === 'quanlynhansu';
+    const isTopLevelManagement = currentUserRole === 'tongquanly' || currentUserRole === 'quanlynhansu';
 
-    if (isTopLevelManager) {
-      // [SỬA LỖI] Tổng quản lý sẽ thấy TẤT CẢ người dùng trong hệ thống.
-      const allUsersQuery = query(usersCollectionRef);
-      const snapshot = await getDocs(allUsersQuery);
-      // Lọc bỏ chính người quản lý ra khỏi danh sách
-      return snapshot.docs
-        .map(doc => ({ uid: doc.id, ...doc.data() } as StaffUser))
+    if (isTopLevelManagement) {
+      const response = await this.databases.listDocuments(
+        this.databaseId,
+        this.userCollectionId
+      );
+      return response.documents
+        .map(doc => ({ uid: doc.$id, ...doc as unknown as StaffUser }))
         .filter(user => user.uid !== currentUserUid);
-    }
-    
-    if (currentUserRole === 'truongphong' || currentUserRole === 'thukho') {
-      // TRƯỜNG HỢP 2: QUẢN LÝ CẤP TRUNG (truongphong, thukho)
-      // [SỬA LỖI] Lấy nhân viên có managerId là UID của quản lý này, VÀ những người dùng chưa được phân công.
-      const staffQuery = query(usersCollectionRef, where('managerId', '==', currentUserUid));
-      const unassignedQuery = query(usersCollectionRef, where('role', '==', 'unassigned'));
+    } else if (currentUserRole === 'truongphong' || currentUserRole === 'thukho') {
+      const staffQuery = this.databases.listDocuments(
+        this.databaseId,
+        this.userCollectionId,
+        [Query.equal('managerId', currentUserUid)]
+      );
+      const unassignedQuery = this.databases.listDocuments(
+        this.databaseId,
+        this.userCollectionId,
+        [Query.equal('role', 'unassigned')] // Assuming 'unassigned' is a valid role for unassigned staff
+      );
   
-      const [staffSnapshot, unassignedSnapshot] = await Promise.all([getDocs(staffQuery), getDocs(unassignedQuery)]);
+      const [staffResponse, unassignedResponse] = await Promise.all([staffQuery, unassignedQuery]);
   
-      const staffList = staffSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as StaffUser));
-      const unassignedList = unassignedSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as StaffUser));
+      const staffList = staffResponse.documents.map(doc => ({ uid: doc.$id, ...doc as unknown as StaffUser }));
+      const unassignedList = unassignedResponse.documents.map(doc => ({ uid: doc.$id, ...doc as unknown as StaffUser }));
       
-      // Gộp 2 danh sách lại
       return [...staffList, ...unassignedList];
     }
 
-    return []; // [SỬA LỖI] Luôn trả về một mảng rỗng nếu không có điều kiện nào khớp.
+    return [];
   }
 
-  /**
-   * Lấy danh sách tất cả người dùng có vai trò là quản lý (Trưởng phòng, Thủ kho)
-   */
-  static async getManagers(): Promise<StaffUser[]> { 
-    // Lấy tất cả những người có vai trò có thể quản lý để hiển thị trong Picker
-    const q = query(usersCollectionRef, where('role', 'in', ['truongphong', 'thukho']));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })) as StaffUser[];
+  async getManagers(): Promise<StaffUser[]> { 
+    const response = await this.databases.listDocuments(
+      this.databaseId,
+      this.userCollectionId,
+      [Query.equal('role', ['truongphong', 'thukho'])]
+    );
+    return response.documents.map(doc => ({ uid: doc.$id, ...doc as unknown as StaffUser }));
   }
 
-  static async getStaffByRole(role: UserRole): Promise<StaffUser[]> {
-    const q = query(usersCollectionRef, where('role', '==', role));
-    const querySnapshot = await getDocs(q);
-    const staffList: StaffUser[] = [];
-    querySnapshot.forEach((doc) => {
-      staffList.push({ uid: doc.id, ...doc.data() } as StaffUser);
-    });
-    return staffList;
+  async getStaffByRole(role: UserRole): Promise<StaffUser[]> {
+    const response = await this.databases.listDocuments(
+      this.databaseId,
+      this.userCollectionId,
+      [Query.equal('role', role)]
+    );
+    return response.documents.map(doc => ({ uid: doc.$id, ...doc as unknown as StaffUser }));
   }
 
-  
-  static async updateStaff(uid: string, data: Partial<StaffUser>) {
-    await updateDoc(doc(db, 'user', uid), data);
+  async updateStaff(uid: string, data: Partial<StaffUser>) {
+    let currentUserData: StaffUser | null = null;
+    try {
+      const userDoc = await this.databases.getDocument(this.databaseId, this.userCollectionId, uid);
+      currentUserData = { uid: userDoc.$id, ...userDoc as unknown as StaffUser };
+    } catch (error) {
+      console.warn(`User with uid ${uid} not found for update. Creating new user.`);
+      // If document not found, currentUserData remains null, and we proceed to create if needed.
+    }
+
+    // Logic để xử lý thay đổi managerId và cập nhật phòng chat phòng ban
+    if (currentUserData && data.managerId !== undefined && data.managerId !== currentUserData.managerId) {
+      const oldManagerId = currentUserData.managerId || null;
+      const newManagerId = data.managerId || null;
+      await ChatService.updateUserDepartmentChat(uid, oldManagerId, newManagerId);
+    }
+
+    // Logic để tạo phòng chat phòng ban nếu người dùng được gán vai trò quản lý
+    if (data.role && (data.role === 'truongphong' || data.role === 'thukho')) {
+      // Chỉ tạo nếu chưa có phòng ban hoặc vai trò mới được gán
+      if (!currentUserData || !(currentUserData.role === 'truongphong' || currentUserData.role === 'thukho')) {
+        const managerName = data.displayName || currentUserData?.displayName;
+        await ChatService.findOrCreateDepartmentChat(uid, managerName);
+      }
+    }
+
+    await this.databases.updateDocument(this.databaseId, this.userCollectionId, uid, data);
   }
 
-  static async deleteStaff(uid: string) {
-    // [THAY ĐỔI] Xóa trực tiếp document người dùng từ Firestore.
-    // LƯU Ý: Hành động này KHÔNG xóa tài khoản khỏi Firebase Authentication.
-    // Người dùng vẫn có thể đăng nhập nhưng sẽ không có quyền truy cập.
-    const userDocRef = doc(db, 'user', uid);
-    await deleteDoc(userDocRef);
-  }
-
-  /**
-   * Cập nhật giờ công và lương tự động khi nhân viên chấm công.
-   * @param uid UID của nhân viên
-   * @param hoursToAdd Số giờ công muốn thêm (ví dụ: 8 giờ cho một ca)
-   * @param hourlyRate Lương mỗi giờ
-   */
-  static async checkIn(uid: string) {
-    const userDocRef = doc(db, 'user', uid);
-    const userDoc = await getDoc(userDocRef);
-
-    if (userDoc.exists()) {
-      const userData = userDoc.data() as StaffUser;
-      const monthlyHours = userData.monthlyHours || 0;
-      const monthlySalary = userData.monthlySalary || 0;
-      const userHourlyRate = userData.hourlyRate || 0; // Lấy mức lương theo giờ của user, mặc định là 0
-
-      // Giả sử mỗi ca làm 8 tiếng và mức lương cơ bản là 50.000 VND/giờ
-      const hoursToAdd = 8;
-
-      await updateDoc(userDocRef, {
-        monthlyHours: monthlyHours + hoursToAdd,
-        monthlySalary: monthlySalary + hoursToAdd * userHourlyRate,
-      });
-    } else {
-      throw new Error('User not found');
+  async deleteStaff(uid: string): Promise<void> {
+    try {
+      await this.databases.deleteDocument(this.databaseId, this.userCollectionId, uid);
+    } catch (error: any) {
+      console.error("Error deleting staff document:", error);
+      throw new Error(error.message || "Không thể xóa người dùng.");
     }
   }
 
-  /**
-   * Phân công lịch làm việc cho một nhân viên cụ thể.
-   * @param uid UID của nhân viên cần phân công
-   * @param date Ngày phân công (định dạng 'YYYY-MM-DD')
-   * @param shift Ca làm việc (ví dụ: 'Ca sáng', 'Ca chiều')
-   * @param note Ghi chú cho ca làm
-   */
-  static async assignSchedule(
+  async checkIn(uid: string) {
+    try {
+      const userDoc = await this.databases.getDocument(this.databaseId, this.userCollectionId, uid);
+      const userData = { uid: userDoc.$id, ...userDoc as unknown as StaffUser };
+      const monthlyHours = userData.monthlyHours || 0;
+      const monthlySalary = userData.monthlySalary || 0;
+      const userHourlyRate = userData.hourlyRate || 0;
+
+      const hoursToAdd = 8;
+
+      await this.databases.updateDocument(this.databaseId, this.userCollectionId, uid, {
+        monthlyHours: monthlyHours + hoursToAdd,
+        monthlySalary: monthlySalary + hoursToAdd * userHourlyRate,
+      });
+    } catch (error) {
+      console.error("Error checking in staff:", error);
+      throw new Error('User not found or error updating check-in data.');
+    }
+  }
+
+  async assignSchedule(
     uid: string,
     date: string,
     shift: string,
     note: string
   ) {
-    const userDocRef = doc(db, 'user', uid);
-    const userDoc = await getDoc(userDocRef);
-
-    if (userDoc.exists()) {
-      const currentSchedule = userDoc.data().schedule || {};
+    try {
+      const userDoc = await this.databases.getDocument(this.databaseId, this.userCollectionId, uid);
+      const userData = { uid: userDoc.$id, ...userDoc as unknown as StaffUser };
+      const currentSchedule = userData.schedule || {};
       const newSchedule = {
         ...currentSchedule,
         [date]: { shift, note },
       };
-      await updateDoc(userDocRef, { schedule: newSchedule });
-    } else {
-      throw new Error('User not found');
+      await this.databases.updateDocument(this.databaseId, this.userCollectionId, uid, { schedule: newSchedule });
+    } catch (error) {
+      console.error("Error assigning schedule:", error);
+      throw new Error('User not found or error updating schedule.');
     }
   }
 
-  /**
-   * Phân công lịch làm việc hàng loạt cho nhiều ngày.
-   * @param uid UID của nhân viên
-   * @param dates Mảng các ngày cần phân công (định dạng 'YYYY-MM-DD')
-   * @param shift Ca làm việc
-   * @param note Ghi chú
-   */
-  static async assignBulkSchedule(
+  async assignBulkSchedule(
     uid: string,
     dates: string[],
     shift: string,
     note: string
   ) {
-    const userDocRef = doc(db, 'user', uid);
-    const userDoc = await getDoc(userDocRef);
-
-    if (userDoc.exists()) {
-      const currentSchedule = userDoc.data().schedule || {};
+    try {
+      const userDoc = await this.databases.getDocument(this.databaseId, this.userCollectionId, uid);
+      const userData = { uid: userDoc.$id, ...userDoc as unknown as StaffUser };
+      const currentSchedule = userData.schedule || {};
       dates.forEach(date => {
         currentSchedule[date] = { shift, note };
       });
-      await updateDoc(userDocRef, { schedule: currentSchedule });
-    } else {
-      throw new Error('User not found');
+      await this.databases.updateDocument(this.databaseId, this.userCollectionId, uid, { schedule: currentSchedule });
+    } catch (error) {
+      console.error("Error assigning bulk schedule:", error);
+      throw new Error('User not found or error updating bulk schedule.');
     }
   }
 }
+
+export {
+  UserRole
+};
+

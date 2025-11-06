@@ -1,19 +1,19 @@
 // app/picking.tsx
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  Modal,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import BouncyCheckbox from 'react-native-bouncy-checkbox';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { QuickNav } from '../components/QuickNav';
 import { Order, OrderItem, OrderService } from '../services/OrderService';
 import { COLORS, styles } from '../styles/homeStyle';
 
@@ -82,6 +82,9 @@ export default function PickingScreen() {
 
   return (
     <View style={[styles.salesStyles.container, { paddingTop: insets.top }]}>
+      {/* Thêm dòng này để ẩn header mặc định */}
+      <Stack.Screen options={{ headerShown: false }} />
+
       <View style={styles.salesStyles.header}>
         <TouchableOpacity onPress={() => router.back()} style={{ position: 'absolute', left: 20, top: 20, zIndex: 1 }}>
           <Ionicons name="arrow-back" size={28} color={COLORS.text_primary} />
@@ -89,7 +92,7 @@ export default function PickingScreen() {
         <Text style={[styles.salesStyles.headerTitle, {width: '100%', textAlign: 'center'}]}>Soạn Đơn Hàng</Text>
       </View>
 
-      <ScrollView style={{ paddingHorizontal: 20 }}>
+      <ScrollView style={{ paddingHorizontal: 20 }} contentContainerStyle={{ paddingBottom: 150 /* Thêm khoảng trống cho footer */ }}>
         <Text style={styles.warehouseStyles.orderId}>ĐH: {order.id.slice(-6).toUpperCase()}</Text>
         <Text style={styles.warehouseStyles.orderInfo}>Khách hàng: {order.customerName || 'N/A'}</Text>
         <Text style={[styles.homeStyles.sectionTitle, { marginTop: 20 }]}>Danh sách sản phẩm cần soạn</Text>
@@ -118,25 +121,6 @@ export default function PickingScreen() {
           );
         })}
       </ScrollView>
-
-      <View style={styles.pickingStyles.footer}>
-        <TouchableOpacity
-          style={[styles.pickingStyles.footerButton, styles.pickingStyles.reportButton]}
-          onPress={() => setReportModalVisible(true)}
-          disabled={loading}
-        >
-          <Ionicons name="warning-outline" size={20} color={COLORS.white} />
-          <Text style={styles.pickingStyles.buttonText}>Báo cáo vấn đề</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.pickingStyles.footerButton, styles.pickingStyles.completeButton, !allItemsChecked && styles.pickingStyles.disabledButton]}
-          onPress={handleCompletePicking}
-          disabled={!allItemsChecked || loading}
-        >
-          {loading ? <ActivityIndicator color={COLORS.white} /> : <Ionicons name="checkmark-done-outline" size={20} color={COLORS.white} />}
-          <Text style={styles.pickingStyles.buttonText}>Hoàn thành</Text>
-        </TouchableOpacity>
-      </View>
 
       {/* Modal Báo cáo */}
       <Modal visible={isReportModalVisible} transparent={true} animationType="slide">
@@ -171,6 +155,9 @@ export default function PickingScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Thanh điều hướng nhanh */}
+      <QuickNav />
     </View>
   );
 }

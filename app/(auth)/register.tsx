@@ -1,21 +1,21 @@
 // app/(auth)/register.tsx
 import { Ionicons } from '@expo/vector-icons';
+import { ID } from 'appwrite';
 import { Link, router, Stack } from 'expo-router';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
+  Modal,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View
-} from 'react-native';
+} from 'react-native'; // Đảm bảo ScrollView được import từ 'react-native'
+import { Calendar } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-import { auth, db } from '../../config/firebase';
-import { styles } from '../../styles/homeStyle';
+import { account } from '../../config/appwrite';
+import { COLORS, styles } from '../../styles/homeStyle';
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
@@ -25,137 +25,187 @@ export default function RegisterScreen() {
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isCalendarVisible, setCalendarVisible] = useState(false);
+  const [isPasswordVisible, setPasswordVisible] = useState(false); // State để ẩn/hiện mật khẩu
+  const [error, setError] = useState(''); // Thêm state để lưu lỗi
   const insets = useSafeAreaInsets();
 
   const handleRegister = async () => {
+    setError(''); // Reset lỗi mỗi khi bấm nút
     if (!email || !password || !displayName || !confirmPassword || !phoneNumber || !dateOfBirth) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng điền đầy đủ tất cả các trường.');
+      setError('Vui lòng điền đầy đủ tất cả các trường.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Mật khẩu phải có ít nhất 6 ký tự.');
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert('Lỗi', 'Mật khẩu và xác nhận mật khẩu không khớp.');
+      setError('Mật khẩu và xác nhận mật khẩu không khớp.');
       return;
     }
+    // Bắt lỗi định dạng ngày sinh
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(dateOfBirth)) {
+      setError('Định dạng ngày sinh không hợp lệ. Vui lòng chọn lại từ lịch.');
+      return;
+    }
+    // [SỬA] Sửa lại regex để xác thực đúng định dạng số điện thoại Việt Nam (10 số)
+    const phoneRegex = /^(0(3|5|7|8|9))\d{8}$/;
+    if (!phoneRegex.test(phoneNumber)) {
+        setError('Số điện thoại không hợp lệ. Vui lòng nhập đúng 10 số.');
+        return;
+    }
+
     setLoading(true);
     try {
-      // Bước 1: Tạo người dùng trong Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      // [SỬA LỖI] Sửa lại luồng đăng ký theo đúng chuẩn Appwrite SDK
+      // Bước 1: Tạo người dùng với các thông tin cơ bản.
+      await account.create(
+        ID.unique(),
+        email,
+        password,
+        displayName
+      );
 
-      // Bước 2: Cập nhật displayName cho hồ sơ Authentication
-      await updateProfile(user, { displayName });
+      // Bước 2: Đăng nhập để tạo session, cần thiết cho việc cập nhật prefs.
+      await account.createEmailPasswordSession(email, password);
 
-      // Bước 3: Tạo hồ sơ người dùng trong Firestore
-      const newUserProfile = {
-        email: user.email,
-        displayName: displayName, // Sử dụng tên người dùng đã nhập
-        phoneNumber: phoneNumber,
+      // Bước 3: Cập nhật thông tin bổ sung (preferences) cho người dùng.
+      const formattedPhoneNumber = `+84${phoneNumber.substring(1)}`;
+      await account.updatePrefs({
+        phone: formattedPhoneNumber,
         dateOfBirth: dateOfBirth,
-        role: 'unassigned',
-        managerId: 'new',
-        monthlyHours: 0,
-        monthlySalary: 0,
-        schedule: {},
-        createdAt: new Date().toISOString(),
-      };
+      });
 
-      await setDoc(doc(db, 'user', user.uid), newUserProfile);
-
-      // Đăng ký thành công, tự động chuyển đến màn hình chính
-      // AuthProvider sẽ xử lý việc đăng nhập và chuyển hướng
-      router.replace('/(tabs)/home');
-
+      // Đăng ký thành công, chuyển người dùng đến màn hình chờ duyệt.
+      router.replace('/pending');
     } catch (error: any) {
-      console.error('Lỗi đăng ký:', error);
-      Alert.alert('Đăng ký thất bại', error.message);
+      console.error('Lỗi đăng ký Appwrite:', error);
+      if (error.code === 409) { // User with the same email already exists
+        setError('Email này đã được sử dụng.');
+      } else {
+        setError(error.message);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={[styles.authStyles.registerContainer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      {/* Ẩn thanh tiêu đề mặc định của navigator */}
-      <Stack.Screen options={{ headerShown: false }} />
+    <ScrollView 
+      style={{ flex: 1, backgroundColor: COLORS.bg_main }} 
+      contentContainerStyle={[styles.authStyles.registerContainer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
+      keyboardShouldPersistTaps="handled"
+    >
+        {/* Ẩn thanh tiêu đề mặc định của navigator */}
+        <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={styles.authStyles.formContainer}>
-        <Text style={styles.authStyles.title}>Tạo tài khoản mới</Text>
-        <View style={styles.authStyles.inputGroup}>
-          <Ionicons name="person-outline" size={20} color="#6B7280" style={styles.authStyles.icon} />
-          <TextInput
-            style={styles.authStyles.input}
-            placeholder="Họ và Tên"
-            value={displayName}
-            onChangeText={setDisplayName}
-            autoCapitalize="words"
-          />
+        <View style={styles.authStyles.formContainer}>
+            <Text style={styles.authStyles.title}>Tạo tài khoản mới</Text>
+            <View style={styles.authStyles.inputGroup}>
+            <Ionicons name="person-outline" size={20} color="#6B7280" style={styles.authStyles.icon} />
+            <TextInput
+                style={styles.authStyles.input}
+                placeholder="Họ và Tên"
+                value={displayName}
+                onChangeText={setDisplayName}
+                autoCapitalize="words"
+            />
+            </View>
+            <View style={styles.authStyles.inputGroup}>
+            <Ionicons name="mail-outline" size={20} color="#6B7280" style={styles.authStyles.icon} />
+            <TextInput
+                style={styles.authStyles.input}
+                placeholder="Email"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+            />
+            </View>
+            <View style={styles.authStyles.inputGroup}>
+            <Ionicons name="call-outline" size={20} color="#6B7280" style={styles.authStyles.icon} />
+            <TextInput
+                style={styles.authStyles.input}
+                placeholder="Số điện thoại"
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                keyboardType="phone-pad"
+            />
+            </View>
+            <View style={styles.authStyles.inputGroup}>
+            <Ionicons name="calendar-outline" size={20} color="#6B7280" style={styles.authStyles.icon} />
+            <TouchableOpacity style={{flex: 1, justifyContent: 'center', height: '100%'}} onPress={() => setCalendarVisible(true)}>
+                <Text style={[styles.authStyles.input, { color: dateOfBirth ? '#1F2937' : '#9CA3AF', paddingTop: 18 }]}>
+                {dateOfBirth ? new Date(dateOfBirth).toLocaleDateString('vi-VN') : 'Chọn ngày sinh'}
+                </Text>
+            </TouchableOpacity>
+            </View>
+            <Modal
+            animationType="fade"
+            transparent={true}
+            visible={isCalendarVisible}
+            onRequestClose={() => setCalendarVisible(false)}
+            >
+            <TouchableOpacity style={styles.salesStyles.modalOverlay} onPress={() => setCalendarVisible(false)}>
+                <View style={styles.salesStyles.modalView}>
+                <Calendar
+                    onDayPress={(day) => {
+                    setDateOfBirth(day.dateString); // day.dateString có định dạng 'YYYY-MM-DD'
+                    setCalendarVisible(false);
+                    }}
+                    markedDates={{ [dateOfBirth]: { selected: true, selectedColor: COLORS.primary } }}
+                    maxDate={new Date().toISOString().split('T')[0]} // Chỉ cho phép chọn ngày trong quá khứ
+                />
+                </View>
+            </TouchableOpacity>
+            </Modal>
+            <View style={styles.authStyles.inputGroup}>
+            <Ionicons name="lock-closed-outline" size={20} color="#6B7280" style={styles.authStyles.icon} />
+            <TextInput
+                style={styles.authStyles.input}
+                placeholder="Mật khẩu"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!isPasswordVisible}
+            />
+            <TouchableOpacity onPress={() => setPasswordVisible(!isPasswordVisible)} style={{ padding: 10 }}>
+                <Ionicons name={isPasswordVisible ? "eye-off-outline" : "eye-outline"} size={22} color="#6B7280" />
+            </TouchableOpacity>
+            </View>
+            <View style={styles.authStyles.inputGroup}>
+            <Ionicons name="lock-closed-outline" size={20} color="#6B7280" style={styles.authStyles.icon} />
+            <TextInput
+                style={styles.authStyles.input}
+                placeholder="Xác nhận mật khẩu"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!isPasswordVisible}
+            />
+            <TouchableOpacity onPress={() => setPasswordVisible(!isPasswordVisible)} style={{ padding: 10 }}>
+                <Ionicons name={isPasswordVisible ? "eye-off-outline" : "eye-outline"} size={22} color="#6B7280" />
+            </TouchableOpacity>
+            </View>
+
+            {error ? <Text style={styles.authStyles.errorText}>{error}</Text> : null}
+
+            <TouchableOpacity style={[styles.authStyles.button, loading && styles.authStyles.buttonDisabled]} onPress={handleRegister} disabled={loading}>
+            {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+            ) : (
+                <Text style={styles.authStyles.buttonText}>Đăng ký</Text>
+            )}
+            </TouchableOpacity>
         </View>
-        <View style={styles.authStyles.inputGroup}>
-          <Ionicons name="mail-outline" size={20} color="#6B7280" style={styles.authStyles.icon} />
-          <TextInput
-            style={styles.authStyles.input}
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
+        <View style={styles.authStyles.loginContainer}>
+            <Text style={styles.authStyles.loginText}>Đã có tài khoản? </Text>
+            <Link href="/(auth)" asChild>
+            <TouchableOpacity>
+                <Text style={styles.authStyles.loginLink}>Đăng nhập ngay</Text>
+            </TouchableOpacity>
+            </Link>
         </View>
-        <View style={styles.authStyles.inputGroup}>
-          <Ionicons name="call-outline" size={20} color="#6B7280" style={styles.authStyles.icon} />
-          <TextInput
-            style={styles.authStyles.input}
-            placeholder="Số điện thoại"
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            keyboardType="phone-pad"
-          />
-        </View>
-        <View style={styles.authStyles.inputGroup}>
-          <Ionicons name="calendar-outline" size={20} color="#6B7280" style={styles.authStyles.icon} />
-          <TextInput
-            style={styles.authStyles.input}
-            placeholder="Ngày sinh (YYYY-MM-DD)"
-            value={dateOfBirth}
-            onChangeText={setDateOfBirth}
-          />
-        </View>
-        <View style={styles.authStyles.inputGroup}>
-          <Ionicons name="lock-closed-outline" size={20} color="#6B7280" style={styles.authStyles.icon} />
-          <TextInput
-            style={styles.authStyles.input}
-            placeholder="Mật khẩu"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-        </View>
-        <View style={styles.authStyles.inputGroup}>
-          <Ionicons name="lock-closed-outline" size={20} color="#6B7280" style={styles.authStyles.icon} />
-          <TextInput
-            style={styles.authStyles.input}
-            placeholder="Xác nhận mật khẩu"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
-        </View>
-        <TouchableOpacity style={[styles.authStyles.button, loading && styles.authStyles.buttonDisabled]} onPress={handleRegister} disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.authStyles.buttonText}>Đăng ký</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-      <View style={styles.authStyles.loginContainer}>
-        <Text style={styles.authStyles.loginText}>Đã có tài khoản? </Text>
-        <Link href="/(auth)" asChild>
-          <TouchableOpacity>
-            <Text style={styles.authStyles.loginLink}>Đăng nhập ngay</Text>
-          </TouchableOpacity>
-        </Link>
-      </View>
-    </View>
+    </ScrollView>
   );
 }

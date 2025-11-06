@@ -183,6 +183,22 @@ export const staffStyles = StyleSheet.create({
     marginTop: 15,
     paddingTop: 15,
   },
+  // [THÊM] Style cho thẻ hiển thị ca làm việc
+  shiftTag: {
+    position: 'absolute', // Định vị tuyệt đối so với thẻ cha (baseCard)
+    top: 10,
+    right: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // [THÊM] Style cho chữ bên trong thẻ ca làm việc
+  shiftTagText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   buttonIcon: {
     marginLeft: 15,
   },

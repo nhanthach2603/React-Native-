@@ -2,15 +2,9 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    // Thêm ánh xạ đường dẫn cho react-native-calendars
     "paths": {
-      // Đường dẫn cũ của bạn
       "@/*": [
         "./*"
-      ],
-      // Đường dẫn mới: Buộc TypeScript tìm Calendar tại đây
-      "react-native-calendars": [
-        "./node_modules/react-native-calendars"
       ]
     }
   },
@@ -18,6 +12,10 @@
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
-, "scripts/seedData.js"  ]
+    "expo-env.d.ts",
+    "env.d.ts" // Thêm dòng này để đảm bảo TypeScript nhận diện file env.d.ts
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

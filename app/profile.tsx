@@ -1,10 +1,10 @@
 // app/profile.tsx
 
+import { COLORS, styles } from '@/styles/homeStyle';
 import { Ionicons } from '@expo/vector-icons';
+import { ID } from 'appwrite';
 import * as ImagePicker from 'expo-image-picker';
 import { router, Stack } from 'expo-router';
-import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, updateProfile } from 'firebase/auth';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -19,29 +19,9 @@ import {
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { auth, storage } from '../config/firebase';
-import { useAuth, UserRole } from '../context/AuthContext';
-import { StaffService } from '../services/StaffService';
-import { COLORS, styles } from '../styles/homeStyle';
-
-const getRoleDisplayName = (userRole: UserRole) => {
-  switch (userRole) {
-    case 'thukho':
-      return 'Thủ kho';
-    case 'truongphong':
-      return 'Trưởng phòng KD/QA';
-    case 'nhanvienkho':
-      return 'Nhân viên Kho';
-    case 'nhanvienkd':
-      return 'Nhân viên Kinh doanh';
-    case 'quanlynhansu':
-      return 'Quản lý Nhân sự';
-    case null:
-    case 'unassigned':
-    default:
-      return 'Chưa được gán';
-  }
-};
+import { account, databases, storage } from '../config/appwrite';
+import { useAuth } from '../context/AuthContext';
+import { getRoleDisplayName } from '../utils/roles';
 
 interface EditProfileModalProps {
   isVisible: boolean;
@@ -262,7 +242,7 @@ export default function ProfileScreen() {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace('/(tabs)/home');
+      router.replace('/screens/home');
     }
   };
 
@@ -276,39 +256,44 @@ export default function ProfileScreen() {
     }
   };
   const handleSaveProfile = async (data: { displayName: string; phoneNumber: string; dateOfBirth: string }) => {
-    if (!currentUser?.uid) return;
+    if (!currentUser?.$id) return;
     try {
-      await StaffService.updateStaff(currentUser.uid, { 
-        displayName: data.displayName,
+      const dbId = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!;
+      const usersCollectionId = process.env.EXPO_PUBLIC_APPWRITE_COLLECTION_USERS!;
+
+      // Cập nhật document trong collection Users
+      await databases.updateDocument(dbId, usersCollectionId, currentUser.$id, {
+        name: data.displayName, // Appwrite dùng 'name'
         phoneNumber: data.phoneNumber,
         dateOfBirth: data.dateOfBirth,
       });
+
+      // Cập nhật tên trong Appwrite Auth
+      if (currentUser.name !== data.displayName) {
+        await account.updateName(data.displayName);
+      }
+
       await refreshCurrentUser(); // Cập nhật lại thông tin user trong context
-      await updateProfile(auth.currentUser!, { displayName: data.displayName }); // Đồng bộ tên với Auth
-      Alert.alert('Thành công', 'Đã cập nhật tên hiển thị.');
+      Alert.alert('Thành công', 'Đã cập nhật thông tin cá nhân.');
     } catch (e: any) {
       Alert.alert('Lỗi', `Không thể cập nhật: ${e.message}`);
     }
   };
 
   const handleChangePassword = async (currentPassword: string, newPassword: string) => {
-    if (!user || !user.email) {
+    if (!user) {
       Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng để đổi mật khẩu.');
       return;
     }
 
     try {
-      // Bước 1: Yêu cầu người dùng xác thực lại
-      const credential = EmailAuthProvider.credential(user.email, currentPassword);
-      await reauthenticateWithCredential(user, credential);
-
-      // Bước 2: Nếu xác thực thành công, cập nhật mật khẩu mới
-      await updatePassword(user, newPassword);
+      // Appwrite xử lý xác thực lại và cập nhật trong một lệnh gọi
+      await account.updatePassword(newPassword, currentPassword);
 
       Alert.alert('Thành công', 'Đã đổi mật khẩu thành công.');
     } catch (error: any) {
       console.error("Lỗi đổi mật khẩu:", error.code);
-      if (error.code === 'auth/wrong-password') {
+      if (error.code === 401) { // Lỗi 401 thường là sai mật khẩu
         Alert.alert('Lỗi', 'Mật khẩu hiện tại không đúng. Vui lòng thử lại.');
       } else {
         Alert.alert('Lỗi', `Không thể đổi mật khẩu: ${error.message}`);
@@ -318,12 +303,15 @@ export default function ProfileScreen() {
   };
 
   const formatDate = (isoString: string | undefined) => {
-    if (!isoString) return 'Chưa có';
+    if (!isoString) return 'Chưa có'; // Xử lý trường hợp null, undefined, hoặc chuỗi rỗng
     try {
-      return new Date(isoString).toLocaleDateString('vi-VN');
+      const date = new Date(isoString);
+      // Kiểm tra xem date có hợp lệ không
+      if (isNaN(date.getTime())) return 'Ngày không hợp lệ';
+      return date.toLocaleDateString('vi-VN');
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e) {
-      return isoString; // Trả về chuỗi gốc nếu không phải định dạng hợp lệ
+      return 'Ngày không hợp lệ'; // Trả về thông báo lỗi chung
     }
   };
 
@@ -349,15 +337,24 @@ export default function ProfileScreen() {
     const imageUri = pickerResult.assets[0].uri;
 
     // Upload ảnh lên Firebase Storage
-    if (currentUser?.uid && imageUri) {
+    if (currentUser?.$id && imageUri) {
+      const bucketId = process.env.EXPO_PUBLIC_APPWRITE_BUCKET_FILES!;
+      const dbId = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!;
+      const usersCollectionId = process.env.EXPO_PUBLIC_APPWRITE_COLLECTION_USERS!;
+
       const response = await fetch(imageUri);
       const blob = await response.blob();
-      const storageRef = ref(storage, `avatars/${currentUser.uid}`);
-      await uploadBytes(storageRef, blob);
+      const file = new File([blob], `avatar_${currentUser.$id}.jpg`, { type: 'image/jpeg' });
 
-      // Lấy URL và cập nhật vào Firestore
-      const downloadURL = await getDownloadURL(storageRef);
-      await StaffService.updateStaff(currentUser.uid, { avatarUrl: downloadURL });
+      // Tải lên Appwrite Storage
+      const uploadedFile = await storage.createFile(bucketId, ID.unique(), file);
+
+      // Lấy URL xem trước công khai
+      const avatarUrl = storage.getFilePreview(bucketId, uploadedFile.$id);
+
+      // Cập nhật URL vào document người dùng
+      await databases.updateDocument(dbId, usersCollectionId, currentUser.$id, { avatarUrl: avatarUrl.href });
+
       await refreshCurrentUser();
       Alert.alert("Thành công", "Đã cập nhật ảnh đại diện.");
     }
@@ -383,8 +380,7 @@ export default function ProfileScreen() {
         {/* Đảm bảo không có text node nào bị lạc trực tiếp bên trong View */}
         <Text style={[styles.staffStyles.headerTitle, { marginBottom: 0 }]}>Thông tin cá nhân</Text>
         <TouchableOpacity onPress={handleLogout} style={{ padding: 5 }}>
-          {/* Bọc Ionicons trong một View để tránh các vấn đề về text node không mong muốn */}
-          <View><Ionicons name="log-out-outline" size={28} color={COLORS.error} /></View>
+          <Ionicons name="log-out-outline" size={28} color={COLORS.error} />
         </TouchableOpacity>
       </View>
 

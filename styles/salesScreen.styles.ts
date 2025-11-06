@@ -88,10 +88,10 @@ export const salesStyles = StyleSheet.create({
   },
   modalView: {
     width: '90%',
+    maxHeight: '80%',
     backgroundColor: 'white',
     borderRadius: 20,
     padding: 35,
-    alignItems: 'center',
     shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -103,6 +103,12 @@ export const salesStyles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 20,
     color: COLORS.text_primary,
+  },
+  confirmationMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    color: COLORS.text_secondary,
   },
   modalInput: {
     width: '100%',

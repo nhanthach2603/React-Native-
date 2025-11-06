@@ -43,7 +43,7 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
             <Text style={styles.warehouseStyles.orderInfo}>Tổng tiền: {order.totalAmount.toLocaleString('vi-VN')} VND</Text>
             
             <Text style={[styles.warehouseStyles.itemsTitle, { marginTop: 15 }]}>Sản phẩm:</Text>
-            {order.items.map((item, index) => (
+            {order.items.map((item: { productName: string | number | bigint | boolean | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | React.ReactPortal | Promise<string | number | bigint | boolean | React.ReactPortal | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined> | null | undefined; selectedVariant: { color: any; size: any; }; qty: string | number | bigint | boolean | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | React.ReactPortal | Promise<string | number | bigint | boolean | React.ReactPortal | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined> | null | undefined; }, index: React.Key | null | undefined) => (
               <Text key={index} style={styles.warehouseStyles.itemDetail}>
                 - {item.productName} ({`${item.selectedVariant.color ? `${item.selectedVariant.color} - ` : ''}${item.selectedVariant.size}`}) x {item.qty}
               </Text>

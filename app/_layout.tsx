@@ -12,21 +12,14 @@ LogBox.ignoreLogs([
 
 function RootLayoutNav() {
   const { loading } = useAuth();
-  
-  const loaded = true; 
-  const error = null;
 
   useEffect(() => {
-    if (error) throw error;
-  }, [error]);
-
-  useEffect(() => {
-    if (loaded && !loading) {
+    if (!loading) {
       SplashScreen.hideAsync();
     }
-  }, [loaded, loading]);
+  }, [loading]);
 
-  if (!loaded || loading) {
+  if (loading) {
     return (
       <View style={styles.homeStyles.loadingContainer}>
         <ActivityIndicator size="large" color="#10B981" />
@@ -37,13 +30,18 @@ function RootLayoutNav() {
   // KHÔNG CÓ LOGIC CHUYỂN HƯỚNG TẠI ĐÂY NỮA
 
   return (
-    <Stack>
+    <Stack
+      // Thêm screenOptions để ẩn header cho tất cả các màn hình trong Stack này theo mặc định
+      screenOptions={{ headerShown: false }}
+    >
       {/* Route gốc sẽ được xử lý bởi app/index.tsx */}
-      <Stack.Screen name="index" options={{ headerShown: false }} /> 
+      <Stack.Screen name="index" /> 
       
-      {/* Các nhóm màn hình chính */}
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="(auth)/index" options={{ headerShown: false }} /> 
+      {/* Khai báo các nhóm route của bạn */}
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="screens" />
+      {/* Khai báo các màn hình đơn lẻ ở thư mục gốc app/ */}
+      <Stack.Screen name="picking" />
     </Stack>
   );
 }

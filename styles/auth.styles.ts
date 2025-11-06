@@ -117,4 +117,11 @@ export const authStyles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 8,
   },
+   errorText: {
+    color: '#EF4444', // Màu đỏ để báo lỗi
+    textAlign: 'center',
+    marginBottom: 15,
+    fontSize: 14,
+    fontWeight: '500',
+  }
 });

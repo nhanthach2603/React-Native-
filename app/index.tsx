@@ -2,32 +2,45 @@
 
 import { router } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { styles } from '../styles/homeStyle';
 
 export default function RootIndex() {
-  const { user, loading } = useAuth();
+  // Lấy thêm currentUser để kiểm tra vai trò
+  const { user, currentUser, loading } = useAuth();
 
   useEffect(() => {
-    if (!loading) {
-      // Sửa logic: Chỉ cần kiểm tra xem người dùng đã đăng nhập hay chưa (user object có tồn tại không).
-      // Việc chuyển hướng dựa trên vai trò sẽ được xử lý bên trong (tabs).
-      if (user) {
-        // Nếu đã đăng nhập, chuyển đến khu vực chính của ứng dụng.
-        router.replace('/(tabs)/home');
-      } else {
-        // Chuyển hướng người dùng chưa đăng nhập đến màn hình Auth
-        router.replace('/(auth)');
-      }
+    // Chỉ thực hiện điều hướng khi quá trình loading ban đầu đã hoàn tất
+    if (loading) {
+      return; // Nếu đang loading, không làm gì cả
     }
-  }, [loading, user]); // Thay đổi dependency thành `user`
+
+    if (user) {
+      // Người dùng đã đăng nhập, kiểm tra vai trò để điều hướng.
+      if (currentUser?.role === 'unassigned') {
+        // Nếu chưa có vai trò, chuyển đến màn hình chờ duyệt
+        router.replace('/pending');
+      } else {
+        // Nếu có vai trò hợp lệ, chuyển đến layout tab chính
+        // Điều hướng đến layout group (tabs), Expo Router sẽ tự động hiển thị màn hình đầu tiên.
+        router.replace('/screens'); // Sửa: Điều hướng đến group 'screens', tab 'home' sẽ tự động hiển thị
+      }
+    } else {
+      // Người dùng chưa đăng nhập, chuyển đến màn hình xác thực.
+      // Lệnh này chỉ nên chạy một lần khi ứng dụng khởi động và phát hiện chưa có ai đăng nhập,
+      // hoặc khi người dùng đăng xuất. Nó sẽ không chạy lại sau mỗi lần đăng nhập thất bại
+      // và do đó không làm mất state `error` của màn hình Login.
+      router.replace('/(auth)');
+    }
+  }, [user, currentUser, loading]);
 
   // Hiển thị loading trong khi chờ Auth Context xác định trạng thái
   if (loading) {
     return (
       <View style={styles.homeStyles.loadingContainer}>
         <ActivityIndicator size="large" color="#10B981" />
+        <Text style={styles.homeStyles.loadingText}>Đang xác thực...</Text>
       </View>
     );
   }

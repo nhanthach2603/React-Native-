@@ -3,6 +3,7 @@
     "name": "quanlykho",
     "slug": "quanlykho",
     "version": "1.0.0",
+    "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "quanlykho",
@@ -25,6 +26,10 @@
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
+    "extra": {
+      "APPWRITE_PROJECT_ID": "690c0955000fba893c0d",
+      "APPWRITE_ENDPOINT": "https://fra.cloud.appwrite.io/v1"
+    },
     "plugins": [
       "expo-router",
       [
@@ -38,12 +43,11 @@
             "backgroundColor": "#000000"
           }
         }
-      ],
-      "expo-web-browser"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": true
+      "reactCompiler": false
     }
   }
 }

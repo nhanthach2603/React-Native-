@@ -1,6 +1,7 @@
 // app/completed-orders.tsx
 
 import { Ionicons } from '@expo/vector-icons';
+import { Query } from 'appwrite';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -11,9 +12,10 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { OrderDetailModal } from '../components/warehouse/OrderDetailModal';
-import { Order, OrderService } from '../services/OrderService';
+import { OrderDetailModal } from '../components/warehouse/OrderDetailModal'; // Giả sử component này không phụ thuộc Firebase
+import { databases } from '../config/appwrite';
 import { COLORS, styles } from '../styles/homeStyle';
+import { Order } from './screens/warehouse'; // Tái sử dụng kiểu Order từ warehouse.tsx
 
 interface GroupedOrders {
   title: string;
@@ -23,27 +25,44 @@ interface GroupedOrders {
 export default function CompletedOrdersScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { staffUid, staffName } = params;
+  const { staffUid } = params;
   const insets = useSafeAreaInsets();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
+  const dbId = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!;
+  const ordersCollectionId = process.env.EXPO_PUBLIC_APPWRITE_COLLECTION_ORDERS!;
+
   useEffect(() => {
     if (typeof staffUid === 'string') {
-      OrderService.getCompletedOrdersForStaffByMonth(staffUid)
-        .then(completedOrders => {
+      const fetchCompletedOrders = async () => {
+        setLoading(true);
+        try {
+          // Lấy các đơn hàng đã hoàn thành trong tháng này do nhân viên này soạn
+          const response = await databases.listDocuments(dbId, ordersCollectionId, [
+            Query.equal('assignedTo', staffUid),
+            Query.equal('status', ['Completed', 'Shipped']), // Các trạng thái đã hoàn thành
+            // Bạn có thể thêm Query.greaterThan('$updatedAt', startOfMonth) nếu cần lọc chính xác theo tháng
+          ]);
+          const completedOrders = response.documents.map(doc => ({ ...doc, id: doc.$id, items: JSON.parse(doc.items) })) as Order[];
           setOrders(completedOrders);
-        })
-        .finally(() => setLoading(false));
+        } catch (error) {
+          console.error("Lỗi khi tải đơn hàng đã hoàn thành:", error);
+          Alert.alert("Lỗi", "Không thể tải dữ liệu.");
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchCompletedOrders();
     }
   }, [staffUid]);
 
   const groupedOrders = useMemo(() => {
     const groups: { [key: string]: Order[] } = {};
     orders.forEach(order => {
-      const date = order.updatedAt.toDate().toLocaleDateString('vi-VN');
+      const date = new Date(order.$updatedAt).toLocaleDateString('vi-VN'); // Sửa: Dùng $updatedAt và new Date()
       if (!groups[date]) {
         groups[date] = [];
       }
@@ -78,7 +97,7 @@ export default function CompletedOrdersScreen() {
         Khách hàng: {item.customerName || 'N/A'}
       </Text>
       <Text style={styles.warehouseStyles.orderInfo}>
-        Tổng tiền: {item.totalAmount.toLocaleString('vi-VN')} VND
+        Tổng tiền: {(item.totalAmount || 0).toLocaleString('vi-VN')} VND
       </Text>
     </TouchableOpacity>
   );

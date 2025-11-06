@@ -1,15 +1,6 @@
 // services/ProductService.ts
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  DocumentData,
-  onSnapshot,
-  QuerySnapshot,
-  updateDoc,
-} from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { ID, Query } from 'appwrite';
+import { databases, config, realtime } from '../config/appwrite';
 
 // --- ĐỊNH NGHĨA TYPES ---
 export interface Category {
@@ -37,31 +28,60 @@ export interface Product {
   variants: ProductVariant[]; // Mảng chứa các biến thể
 }
 
-const productsCollectionRef = collection(db, 'products');
-const categoriesCollectionRef = collection(db, 'categories');
+const DATABASE_ID = config.databaseId;
+const PRODUCTS_COLLECTION_ID = config.productCollectionId;
+const CATEGORIES_COLLECTION_ID = config.categoryCollectionId;
 
 export class ProductService {
   // --- PRODUCT CRUD ---
   static subscribeToProducts(onUpdateCallback: (products: Product[]) => void) {
-    const unsubscribe = onSnapshot(
-      productsCollectionRef,
-      (querySnapshot: QuerySnapshot<DocumentData>) => {
-        const products: Product[] = querySnapshot.docs.map(d => ({
-          id: d.id, 
-          ...(d.data() as Omit<Product, "id">),
+    const fetchProducts = async () => {
+      try {
+        const response = await databases.listDocuments(
+          DATABASE_ID,
+          PRODUCTS_COLLECTION_ID,
+          [Query.orderDesc('$createdAt')]
+        );
+        const products: Product[] = response.documents.map(d => ({
+          id: d.$id,
+          name: d.name,
+          sku: d.sku,
+          totalQuantity: d.totalQuantity,
+          unit: d.unit,
+          price: d.price,
+          category: d.category,
+          lastUpdatedBy: d.lastUpdatedBy,
+          updatedAt: d.updatedAt,
+          variants: d.variants,
         }));
         onUpdateCallback(products);
-      },
-      (error) => {
-        console.error("🔥 Lỗi khi lắng nghe sản phẩm:", error);
+      } catch (error) {
+        console.error("🔥 Lỗi khi lấy sản phẩm từ Appwrite:", error);
       }
-    );
-    return unsubscribe;
+    };
+
+    // Fetch initial products
+    fetchProducts();
+
+    // Subscribe to real-time updates
+    const unsubscribe = realtime.subscribe(`databases.${DATABASE_ID}.collections.${PRODUCTS_COLLECTION_ID}.documents`, response => {
+      if (response.events.includes(`databases.${DATABASE_ID}.collections.${PRODUCTS_COLLECTION_ID}.documents.*`)) {
+        // A document in the collection has changed, re-fetch all products
+        fetchProducts();
+      }
+    });
+
+    return () => unsubscribe();
   }
 
   static async addProduct(productData: Omit<Product, 'id'>) {
     try {
-      await addDoc(productsCollectionRef, { ...productData, updatedAt: new Date().toISOString() });
+      await databases.createDocument(
+        DATABASE_ID,
+        PRODUCTS_COLLECTION_ID,
+        ID.unique(),
+        { ...productData, updatedAt: new Date().toISOString() }
+      );
     } catch (e: any) {
       console.error("🔥 Lỗi thêm sản phẩm:", e.message);
       throw new Error(`Không thể thêm sản phẩm. Lỗi: ${e.code || e.message}`);
@@ -71,8 +91,12 @@ export class ProductService {
   static async updateProduct(productId: string, updatedData: Partial<Product>) {
     try {
       if (!productId) throw new Error("ID sản phẩm không hợp lệ.");
-      const productDocRef = doc(db, 'products', productId);
-      await updateDoc(productDocRef, { ...updatedData, updatedAt: new Date().toISOString() });
+      await databases.updateDocument(
+        DATABASE_ID,
+        PRODUCTS_COLLECTION_ID,
+        productId,
+        { ...updatedData, updatedAt: new Date().toISOString() }
+      );
     } catch (e: any) {
       console.error("🔥 Lỗi cập nhật sản phẩm:", e.message);
       throw new Error(`Không thể cập nhật sản phẩm. Lỗi: ${e.code || e.message}`);
@@ -83,8 +107,7 @@ export class ProductService {
     try {
       if (!productId) throw new Error("ID sản phẩm không hợp lệ.");
       console.log("ProductService: Đang cố gắng xóa sản phẩm với ID:", productId);
-      const productDocRef = doc(db, 'products', productId);
-      await deleteDoc(productDocRef);
+      await databases.deleteDocument(DATABASE_ID, PRODUCTS_COLLECTION_ID, productId);
       console.log("ProductService: Xóa sản phẩm thành công!");
     } catch (e: any) {
       console.error("🔥 LỖI FATAL KHI XÓA SẢN PHẨM:", e.message);
@@ -94,25 +117,45 @@ export class ProductService {
 
   // --- CATEGORY CRUD ---
   static subscribeToCategories(onUpdateCallback: (categories: Category[]) => void) {
-    const unsubscribe = onSnapshot(
-      categoriesCollectionRef,
-      (querySnapshot: QuerySnapshot<DocumentData>) => {
-        const categories: Category[] = querySnapshot.docs.map(d => ({
-          id: d.id,
-          ...(d.data() as Omit<Category, "id">),
+    const fetchCategories = async () => {
+      try {
+        const response = await databases.listDocuments(
+          DATABASE_ID,
+          CATEGORIES_COLLECTION_ID,
+          [Query.orderDesc('$createdAt')]
+        );
+        const categories: Category[] = response.documents.map(d => ({
+          id: d.$id,
+          name: d.name,
         }));
         onUpdateCallback(categories);
-      },
-      (error) => {
-        console.error("🔥 Lỗi khi lắng nghe Categories:", error);
+      } catch (error) {
+        console.error("🔥 Lỗi khi lấy danh mục từ Appwrite:", error);
       }
-    );
-    return unsubscribe;
+    };
+
+    // Fetch initial categories
+    fetchCategories();
+
+    // Subscribe to real-time updates
+    const unsubscribe = realtime.subscribe(`databases.${DATABASE_ID}.collections.${CATEGORIES_COLLECTION_ID}.documents`, response => {
+      if (response.events.includes(`databases.${DATABASE_ID}.collections.${CATEGORIES_COLLECTION_ID}.documents.*`)) {
+        // A document in the collection has changed, re-fetch all categories
+        fetchCategories();
+      }
+    });
+
+    return () => unsubscribe();
   }
 
   static async addCategory(name: string) {
     try {
-      await addDoc(categoriesCollectionRef, { name });
+      await databases.createDocument(
+        DATABASE_ID,
+        CATEGORIES_COLLECTION_ID,
+        ID.unique(),
+        { name }
+      );
     } catch (e: any) {
       console.error("🔥 LỖI THÊM CATEGORY:", e.message);
       throw new Error(`Không thể thêm Category. Lỗi: ${e.code || e.message}`);
@@ -123,8 +166,7 @@ export class ProductService {
     try {
       if (!categoryId) throw new Error("ID Category không hợp lệ.");
       console.log("ProductService: Đang cố gắng xóa category với ID:", categoryId);
-      const categoryDocRef = doc(db, 'categories', categoryId);
-      await deleteDoc(categoryDocRef);
+      await databases.deleteDocument(DATABASE_ID, CATEGORIES_COLLECTION_ID, categoryId);
       console.log("ProductService: Xóa category thành công!");
     } catch (e: any) {
       console.error("🔥 LỖI FATAL KHI XÓA CATEGORY:", e.message);

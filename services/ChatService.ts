@@ -1,166 +1,240 @@
-// services/ChatService.ts
+// d:\React-Native-\services\ChatService.ts
+import { ID, Permission, Query, Role } from 'appwrite';
+import { config, databases, realtime, storage } from '../config/appwrite';
 
-import {
-  collection,
-  query,
-  onSnapshot,
-  addDoc,
-  orderBy,
-  limit,
-  serverTimestamp,
-  QuerySnapshot,
-  DocumentData,
-  Timestamp,
-  doc,
-  getDoc,
-  where,
-  getDocs,
-} from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, app, storage } from '../config/firebase'; // Đã thêm storage
-
+// --- INTERFACES ---
 export interface ChatRoom {
   id: string;
   name: string;
-  type: 'group' | 'private';
-  participants: string[]; 
-}
-
-export interface UserChatInfo {
-  _id: string;
-  name: string;
+  type: 'private' | 'group' | 'department';
+  participants: string[]; // Mảng các user ID
+  managerId?: string; // Dùng cho phòng ban
 }
 
 export interface IMessage {
-  _id: string;
+  id: string;
+  roomId: string;
+  senderId: string;
+  senderName: string; // Thêm tên người gửi để hiển thị
   text: string;
   createdAt: Date;
-  user: { _id: string; name: string };
-  image?: string;
-  file?: string;
-  video?: string;
+  imageUrl?: string;
+  fileUrl?: string;
 }
 
-export class ChatService {
-  // --- HÀM MỚI: TẢI TỆP TIN LÊN FIREBASE STORAGE ---
-  static async uploadFile(uri: string, type: 'image' | 'file'): Promise<string> {
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    
-    // Tạo đường dẫn file: chats/files/{timestamp}-{filename}
-    const filename = `${Date.now()}-${uri.substring(uri.lastIndexOf('/') + 1)}`;
-    const storageRef = ref(storage, `chats/${type}s/${filename}`);
+// --- SERVICE LOGIC ---
+export const ChatService = {
+  // --- QUẢN LÝ PHÒNG CHAT ---
 
-    const snapshot = await uploadBytes(storageRef, blob);
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    
-    return downloadURL;
-  }
-  // ----------------------------------------------------
+  /**
+   * Tìm hoặc tạo phòng chat 1-1 giữa hai người dùng.
+   */
+  async findOrCreatePrivateChat(userId1: string, userId2: string): Promise<string> {
+    const sortedIds = [userId1, userId2].sort();
+    const privateRoomId = `private_${sortedIds[0]}_${sortedIds[1]}`;
 
-  static async getUserChatRooms(userId: string): Promise<ChatRoom[]> {
-    if (!userId) return [];
     try {
-      const userDocRef = doc(db, 'user', userId);
-      const userDoc = await getDoc(userDocRef);
-      if (userDoc.exists()) {
-        const q = query(collection(db, 'chats'), where('participants', 'array-contains', userId));
-        const chatRoomsSnapshot = await getDocs(q);
-        
-        const chatRooms: ChatRoom[] = chatRoomsSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        } as ChatRoom));
-        
-        return chatRooms;
-      }
-      return [];
-    } catch (e) {
-      console.error('Lỗi khi lấy danh sách phòng chat:', e);
-      return [];
+      // Thử lấy phòng chat nếu đã tồn tại
+      await databases.getDocument(config.databaseId, config.roomCollectionId, privateRoomId);
+      return privateRoomId;
+    } catch (error) {
+      // Nếu không tồn tại (lỗi 404), tạo phòng mới
+      const roomData = {
+        name: `Private Chat`,
+        type: 'private',
+        participants: sortedIds,
+      };
+      // Quyền: chỉ 2 người tham gia mới được đọc/ghi
+      const permissions = [
+        Permission.read(Role.user(userId1)),
+        Permission.write(Role.user(userId1)),
+        Permission.read(Role.user(userId2)),
+        Permission.write(Role.user(userId2)),
+      ];
+      await databases.createDocument(config.databaseId, config.roomCollectionId, privateRoomId, roomData, permissions);
+      return privateRoomId;
     }
-  }
+  },
 
-  static subscribeToChatMessages(chatId: string, onMessagesLoadedCallback: (messages: IMessage[]) => void) {
-    if (!chatId) return () => {};
+  /**
+   * Tạo phòng chat cho phòng ban khi một người được thăng chức quản lý.
+   */
+  async createDepartmentChat(managerId: string, managerName: string): Promise<string> {
+    const departmentRoomId = `department_${managerId}`;
+    try {
+        const roomData = {
+            name: `Phòng ban của ${managerName}`,
+            type: 'department',
+            participants: [managerId], // Ban đầu chỉ có quản lý
+            managerId: managerId,
+        };
+        const permissions = [
+            Permission.read(Role.user(managerId)),
+            Permission.write(Role.user(managerId)),
+            Permission.update(Role.user(managerId)),
+            Permission.delete(Role.user(managerId)),
+        ];
+        await databases.createDocument(config.databaseId, config.roomCollectionId, departmentRoomId, roomData, permissions);
+        return departmentRoomId;
+    } catch (error) {
+        if ((error as any).code === 409) { // Conflict
+            return departmentRoomId;
+        }
+        console.error("Lỗi khi tạo phòng ban:", error);
+        throw error;
+    }
+  },
 
-    const messagesCollection = collection(db, 'chats', chatId, 'messages');
-    const q = query(messagesCollection, orderBy('createdAt', 'desc'), limit(50));
+  /**
+   * Thêm một nhân viên vào phòng chat của phòng ban.
+   */
+  async addUserToDepartmentChat(userId: string, managerId: string) {
+    const departmentRoomId = `department_${managerId}`;
+    try {
+        const room = await databases.getDocument(config.databaseId, config.roomCollectionId, departmentRoomId);
+        const participants = room.participants as string[];
+        if (!participants.includes(userId)) {
+            const newParticipants = [...participants, userId];
+            const permissions = room.$permissions.concat([Permission.read(Role.user(userId))]);
+            await databases.updateDocument(config.databaseId, config.roomCollectionId, departmentRoomId, { participants: newParticipants }, permissions);
+        }
+    } catch (error) {
+        console.error(`Không tìm thấy phòng ban cho quản lý ${managerId} để thêm ${userId}`, error);
+    }
+  },
+  
+  /**
+   * Xóa một nhân viên khỏi phòng chat của phòng ban.
+   */
+  async removeUserFromDepartmentChat(userId: string, managerId: string) {
+    const departmentRoomId = `department_${managerId}`;
+    try {
+        const room = await databases.getDocument(config.databaseId, config.roomCollectionId, departmentRoomId);
+        const participants = (room.participants as string[]).filter(p => p !== userId);
+        const permissions = (room.$permissions as string[]).filter(p => p !== Permission.read(Role.user(userId)));
+        await databases.updateDocument(config.databaseId, config.roomCollectionId, departmentRoomId, { participants }, permissions);
+    } catch (error) {
+        console.error(`Lỗi khi xóa ${userId} khỏi phòng ban của ${managerId}`, error);
+    }
+  },
 
-    const unsubscribe = onSnapshot(
-      q,
-      (querySnapshot: QuerySnapshot<DocumentData>) => {
-        const messages: IMessage[] = querySnapshot.docs.map(doc => {
-          const data = doc.data() as any;
-          return {
-            _id: doc.id,
-            text: data.text,
-            createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
-            user: { _id: data.user.id, name: data.user.name },
-            image: data.image,
-            file: data.file,
-            video: data.video,
-          } as IMessage;
-        });
-        onMessagesLoadedCallback(messages);
-      },
-      (error) => {
-        console.error('Lỗi khi lắng nghe tin nhắn:', error);
-      }
+  /**
+   * Cập nhật phòng ban cho nhân viên khi họ chuyển người quản lý.
+   */
+  async updateUserDepartmentChat(userId: string, oldManagerId: string | null, newManagerId: string | null) {
+    if (oldManagerId) {
+      await this.removeUserFromDepartmentChat(userId, oldManagerId);
+    }
+    if (newManagerId) {
+      await this.addUserToDepartmentChat(userId, newManagerId);
+    }
+  },
+
+  /**
+   * Lấy danh sách các phòng chat mà người dùng tham gia.
+   * Bao gồm cả phòng chung (general)
+   */
+  async getUserChatRooms(userId: string): Promise<ChatRoom[]> {
+    // Lấy các phòng user là thành viên
+    const userRoomsResponse = await databases.listDocuments(
+      config.databaseId,
+      config.roomCollectionId,
+      [Query.contains('participants', userId)]
     );
-    return unsubscribe;
-  }
+    
+    // Lấy phòng chung (general)
+    try {
+        const generalRoom = await databases.getDocument(config.databaseId, config.roomCollectionId, 'general');
+        // Đảm bảo không bị trùng lặp nếu user cũng có trong participants của phòng general
+        if (!userRoomsResponse.documents.find(d => d.$id === 'general')) {
+            userRoomsResponse.documents.push(generalRoom);
+        }
+    } catch(e) {
+        console.log("Phòng chat chung chưa được tạo.");
+    }
 
-  static async sendMessage(chatId: string, messages: IMessage[]) {
-    if (!chatId || messages.length === 0) return;
+    return userRoomsResponse.documents.map(doc => ({
+      id: doc.$id,
+      name: doc.name,
+      type: doc.type,
+      participants: doc.participants,
+      managerId: doc.managerId,
+    }));
+  },
 
-    const message = messages[0];
-    const messageDoc = {
-      text: message.text || null,
-      createdAt: serverTimestamp(),
-      user: { id: message.user._id, name: message.user.name },
-      image: message.image || null,
-      file: (message as any).file || null,
-      video: message.video || null,
+  // --- QUẢN LÝ TIN NHẮN ---
+
+  /**
+   * Gửi tin nhắn mới.
+   */
+  async sendMessage(message: Omit<IMessage, 'id' | 'createdAt'>): Promise<void> {
+    const messageData = {
+      roomId: message.roomId,
+      senderId: message.senderId,
+      senderName: message.senderName,
+      text: message.text,
+      imageUrl: message.imageUrl,
+      fileUrl: message.fileUrl,
+    };
+    const room = await databases.getDocument(config.databaseId, config.roomCollectionId, message.roomId);
+    const permissions = (room.participants as string[]).map(pId => Permission.read(Role.user(pId)));
+    // Nếu là phòng chung, cho phép mọi user đọc
+    if (message.roomId === 'general') {
+        permissions.push(Permission.read(Role.any()));
+    }
+
+    await databases.createDocument(config.databaseId, config.messageCollectionId, ID.unique(), messageData, permissions);
+  },
+
+  /**
+   * Lắng nghe tin nhắn mới trong một phòng chat (Realtime).
+   */
+  onMessagesUpdate(roomId: string, callback: (messages: IMessage[]) => void): () => void {
+    const fetchAndCallback = async () => {
+      const response = await databases.listDocuments(
+        config.databaseId,
+        config.messageCollectionId,
+        [Query.equal('roomId', roomId), Query.orderDesc('$createdAt'), Query.limit(50)]
+      );
+      const newMessages = response.documents.map(doc => ({
+        id: doc.$id,
+        roomId: doc.roomId,
+        senderId: doc.senderId,
+        senderName: doc.senderName,
+        text: doc.text,
+        createdAt: new Date(doc.$createdAt),
+        imageUrl: doc.imageUrl,
+        fileUrl: doc.fileUrl,
+      }));
+      callback(newMessages);
     };
 
-    try {
-      const messagesCollection = collection(db, 'chats', chatId, 'messages');
-      await addDoc(messagesCollection, messageDoc);
-    } catch (e) {
-      throw new Error('Không thể gửi tin nhắn.');
-    }
-  }
+    fetchAndCallback();
 
-  static async findOrCreatePrivateChat(currentUserId: string, otherUserId: string, currentUserEmail: string, otherUserEmail: string): Promise<string> {
-    const chatsCollection = collection(db, 'chats');
-
-    const q = query(
-      chatsCollection,
-      where('type', '==', 'private'),
-      where('participants', 'array-contains-any', [currentUserId, otherUserId])
-    );
-    const chatsSnapshot = await getDocs(q);
-
-    let chatId = '';
-
-    chatsSnapshot.forEach(doc => {
-      const chat = doc.data();
-      if (chat.participants.length === 2 && chat.participants.includes(currentUserId) && chat.participants.includes(otherUserId)) {
-        chatId = doc.id;
+    const channel = `databases.${config.databaseId}.collections.${config.messageCollectionId}.documents`;
+    const unsubscribe = realtime.subscribe(channel, response => {
+      if (response.events.includes('databases.*.collections.*.documents.*.create')) {
+        const newMessage = response.payload as any;
+        if (newMessage.roomId === roomId) {
+            fetchAndCallback(); // Fetch lại để có danh sách mới nhất
+        }
       }
     });
 
-    if (chatId) {
-      return chatId;
-    } else {
-      const newChatDoc = await addDoc(chatsCollection, {
-        type: 'private',
-        participants: [currentUserId, otherUserId],
-        name: `${currentUserEmail.split('@')[0]} - ${otherUserEmail.split('@')[0]}`,
-        createdAt: serverTimestamp(),
-      });
-      return newChatDoc.id;
-    }
-  }
-}
+    return unsubscribe;
+  },
+  
+  /**
+   * Tải file lên Storage.
+   */
+  async uploadFile(uri: string, name: string): Promise<string> {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const file = new File([blob], name, { type: blob.type });
+
+    const result = await storage.createFile(config.chatFilesBucketId, ID.unique(), file);
+    
+    const url = storage.getFileView(config.chatFilesBucketId, result.$id);
+    return url.href;
+  },
+};

@@ -30,8 +30,8 @@ const OrderItemRow = React.memo(({
         <Text style={styles.salesStyles.productDetails}>Giá: {item.price.toLocaleString('vi-VN')} VND</Text>
       </View>
       <View style={styles.salesStyles.quantityControl}>
-        <TouchableOpacity onPress={() => onUpdateQty(item.productId, item.selectedVariant, item.qty - 1)}>
-          <Ionicons name="remove-circle-outline" size={28} color={COLORS.text_secondary} />
+        <TouchableOpacity onPress={() => onUpdateQty(item.productId, item.selectedVariant, item.qty - 1)} style={{ padding: 4 }}>
+          <Ionicons name="remove-circle-outline" size={30} color={COLORS.text_secondary} />
         </TouchableOpacity>
         <TextInput
           value={item.qty.toString()}
@@ -39,8 +39,8 @@ const OrderItemRow = React.memo(({
           keyboardType="numeric"
           style={OrderEditModalStyles.qtyInput}
         />
-        <TouchableOpacity onPress={() => onUpdateQty(item.productId, item.selectedVariant, item.qty + 1)}><Ionicons name="add-circle-outline" size={28} color={COLORS.primary} /></TouchableOpacity>
-        <TouchableOpacity onPress={() => onRemove(item.productId, item.selectedVariant)} style={{ marginLeft: 8 }}><Ionicons name="trash-outline" size={26} color={COLORS.error} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => onUpdateQty(item.productId, item.selectedVariant, item.qty + 1)} style={{ padding: 4 }}><Ionicons name="add-circle-outline" size={30} color={COLORS.primary} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => onRemove(item.productId, item.selectedVariant)} style={{ marginLeft: 12, padding: 4 }}><Ionicons name="trash-outline" size={28} color={COLORS.error} /></TouchableOpacity>
       </View>
     </View>
   );
@@ -105,10 +105,6 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({ isVisible, onClo
     setProductPickerVisible(false); // Đóng modal chọn sản phẩm
   };
 
-  const handleRemoveItem = useCallback((productId: string, variant: ProductVariant) => {
-    setItems(items.filter(i => !(i.productId === productId && i.selectedVariant.size === variant.size && i.selectedVariant.color === variant.color)));
-  }, [items]);
-
   const availableProducts = allProducts.filter(p => {
     // const isInOrder = items.some(item => item.productId === p.id); // Có thể cho phép thêm nhiều biến thể của cùng 1 sản phẩm
     const matchesSearch = p.name.toLowerCase().includes(productSearch.toLowerCase());
@@ -116,6 +112,10 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({ isVisible, onClo
   });
 
   const handleUpdateQty = useCallback((productId: string, variant: ProductVariant, qty: number) => {
+    const handleRemoveItem = (productIdToRemove: string, variantToRemove: ProductVariant) => {
+      setItems(currentItems => currentItems.filter(i => !(i.productId === productIdToRemove && i.selectedVariant.size === variantToRemove.size && i.selectedVariant.color === variantToRemove.color)));
+    };
+
     const variantInStock = allProducts.find(p => p.id === productId)?.variants.find(v => v.size === variant.size && v.color === variant.color);
     const stock = variantInStock?.quantity || 0;
 
@@ -128,7 +128,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({ isVisible, onClo
     } else {
       setItems(items.map(i => (i.productId === productId && i.selectedVariant.size === variant.size && i.selectedVariant.color === variant.color ? { ...i, qty } : i)));
     }
-  }, [allProducts, items, onShowMessage, handleRemoveItem]);
+  }, [allProducts, items, onShowMessage]);
 
   const totalAmount = items.reduce((sum, item) => sum + item.price * item.qty, 0);
 
@@ -187,7 +187,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({ isVisible, onClo
               <OrderItemRow
                 item={item}
                 onUpdateQty={handleUpdateQty}
-                onRemove={handleRemoveItem}
+                onRemove={(productId, variant) => handleUpdateQty(productId, variant, 0)} // Gọi update với qty=0 để xóa
               />
             )}
             ListEmptyComponent={<Text style={styles.salesStyles.emptyText}>Chưa có sản phẩm nào trong đơn.</Text>}

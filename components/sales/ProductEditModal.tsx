@@ -26,8 +26,8 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({ isVisible, o
   const [variants, setVariants] = useState<ProductVariant[]>([{ color: '', size: '', quantity: 0 }]);
   const [loading, setLoading] = useState(false);
   const { currentUser } = useAuth();
-  const isTopLevelManager = currentUser?.managerId === null || currentUser?.role === 'quanlynhansu';
-  const isFullManager = currentUser?.role === 'truongphong' || isTopLevelManager;
+  const isTopLevelManagement = currentUser?.role === 'tongquanly' || currentUser?.role === 'quanlynhansu';
+  const isFullManager = currentUser?.role === 'truongphong' || isTopLevelManagement;
   const isWarehouseKeeper = currentUser?.role === 'thukho';
   const isEditing = !!productToEdit;
 
@@ -62,8 +62,22 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({ isVisible, o
       setLoading(false);
       return;
     }
-    const totalQuantity = validVariants.reduce((sum, v) => sum + v.quantity, 0);
-    const productData = { name, sku, unit, price, category, variants: validVariants, totalQuantity };
+
+    let finalVariants = validVariants;
+    // Nếu là Thủ kho đang chỉnh sửa, chỉ cập nhật số lượng, không xóa các biến thể khác.
+    // [SỬA] Logic cho Thủ kho: chỉ cập nhật số lượng của các biến thể gốc.
+    // Bỏ qua bất kỳ biến thể mới nào có thể đã được thêm vào state `variants`.
+    if (isEditing && isWarehouseKeeper && productToEdit) {
+      finalVariants = productToEdit.variants.map(originalVariant => {
+        // Tìm biến thể tương ứng trong state `variants` hiện tại để lấy số lượng mới.
+        const updatedVariantInState = variants.find(v => v.size === originalVariant.size && v.color === originalVariant.color);
+        // Nếu tìm thấy, cập nhật số lượng. Nếu không, giữ nguyên số lượng gốc.
+        return updatedVariantInState ? { ...originalVariant, quantity: updatedVariantInState.quantity } : originalVariant;
+      });
+    }
+
+    const totalQuantity = finalVariants.reduce((sum, v) => sum + v.quantity, 0);
+    const productData = { name, sku, unit, price, category, variants: finalVariants, totalQuantity };
 
     try {
       if (isEditing) {
