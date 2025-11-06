@@ -1,6 +1,5 @@
 // app/(auth)/register.tsx
 import { Ionicons } from '@expo/vector-icons';
-import { ID } from 'appwrite';
 import { Link, router, Stack } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -14,7 +13,7 @@ import {
 } from 'react-native'; // Đảm bảo ScrollView được import từ 'react-native'
 import { Calendar } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { account } from '../../config/appwrite';
+import { UserService } from '../../services/UserService';
 import { COLORS, styles } from '../../styles/homeStyle';
 
 export default function RegisterScreen() {
@@ -59,33 +58,22 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      // [SỬA LỖI] Sửa lại luồng đăng ký theo đúng chuẩn Appwrite SDK
-      // Bước 1: Tạo người dùng với các thông tin cơ bản.
-      await account.create(
-        ID.unique(),
+      await UserService.createUser({
         email,
         password,
-        displayName
-      );
-
-      // Bước 2: Đăng nhập để tạo session, cần thiết cho việc cập nhật prefs.
-      await account.createEmailPasswordSession(email, password);
-
-      // Bước 3: Cập nhật thông tin bổ sung (preferences) cho người dùng.
-      const formattedPhoneNumber = `+84${phoneNumber.substring(1)}`;
-      await account.updatePrefs({
-        phone: formattedPhoneNumber,
-        dateOfBirth: dateOfBirth,
+        displayName,
+        phoneNumber,
+        dateOfBirth,
       });
 
       // Đăng ký thành công, chuyển người dùng đến màn hình chờ duyệt.
       router.replace('/pending');
     } catch (error: any) {
-      console.error('Lỗi đăng ký Appwrite:', error);
+      console.error('Lỗi đăng ký:', error);
       if (error.code === 409) { // User with the same email already exists
         setError('Email này đã được sử dụng.');
       } else {
-        setError(error.message);
+        setError(error.message || 'Đã có lỗi xảy ra trong quá trình đăng ký.');
       }
     } finally {
       setLoading(false);
