@@ -82,7 +82,11 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({ isVisible, o
 
     try {
       if (isEditing) {
-        await onSave({ ...productData, $id: productToEdit!.$id }); // Đảm bảo truyền đúng $id
+        await onSave({
+          ...productData, $id: productToEdit!.$id,
+          id: '',
+          totalQuantity: 0
+        }); // Đảm bảo truyền đúng $id
       } else {
         await onSave(productData);
       }

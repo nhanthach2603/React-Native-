@@ -27,7 +27,10 @@ export class CategoryService {
     }
   }
 
-  static async addCategory(name: string): Promise<any> {
+  static async addCategory(name: string, currentUser: AppwriteUser | null): Promise<any> {
+    if (!currentUser || (currentUser.role !== 'tongquanly' && currentUser.role !== 'truongphong')) {
+      throw new Error("Bạn không có quyền để tạo danh mục mới.");
+    }
     try {
       const response = await databases.createDocument(
         this.dbId,

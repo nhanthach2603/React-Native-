@@ -1,4 +1,15 @@
-export type OrderStatus = 'Draft' | 'Confirmed' | 'Assigned' | 'Processing' | 'PendingRevision' | 'Completed' | 'Shipped' | 'Canceled';
+// =========================
+// Order-related types
+// =========================
+export type OrderStatus =
+  | 'Draft'
+  | 'Confirmed'
+  | 'Assigned'
+  | 'Processing'
+  | 'PendingRevision'
+  | 'Completed'
+  | 'Shipped'
+  | 'Canceled';
 
 export interface OrderItem {
   qty: number;
@@ -26,4 +37,17 @@ export interface Order {
   customerAddress?: string;
   assignedToName?: string;
   managerId?: string;
+}
+
+// =========================
+// Staff-related types
+// =========================
+export type UserRole = 'admin' | 'truongphong' | 'thukho' | 'nhanvienkho' | 'nhanvienbanhang';
+
+export interface StaffUser {
+  uid: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+  managerId?: string | null; // ✅ Bổ sung field này để fix lỗi
 }

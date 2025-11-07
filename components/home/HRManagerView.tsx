@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { UserRole } from '../../context/AuthContext';
-import { StaffService, StaffUser } from '../../services/StaffService'; // Giữ lại StaffUser type
+import { StaffService, StaffUser } from '../../services/StaffService';
 import { COLORS } from '../../styles/_colors';
 import { staffStyles } from '../../styles/staffScreen.styles';
 
@@ -16,13 +16,10 @@ export const HRManagerView = () => {
     const staffService = new StaffService();
     const fetchStaffOnShift = async () => {
       try {
-        // [SỬA] Gọi hàm đã có sẵn để lấy tất cả nhân viên và lịch làm việc
         const result = await staffService.getAllStaffWithSchedule();
-        setStaffOnShift(result); // Kết quả trả về trực tiếp là một mảng
+        setStaffOnShift(result || []);
       } catch (error: any) {
-        console.error("Lỗi khi lấy danh sách nhân viên làm việc:", error.message);
-        // Hiển thị lỗi cho người dùng nếu cần
-        // Alert.alert("Lỗi", "Không thể tải danh sách nhân viên làm việc.");
+        console.error("Lỗi khi lấy danh sách nhân viên làm việc:", error?.message || error);
       } finally {
         setLoading(false);
       }
@@ -31,7 +28,8 @@ export const HRManagerView = () => {
     fetchStaffOnShift();
   }, []);
 
-  const getDepartmentFromRole = (role: UserRole) => {
+  const getDepartmentFromRole = (role?: UserRole) => {
+    if (!role) return 'N/A';
     if (role === 'nhanvienkho' || role === 'thukho') return 'Kho';
     if (role === 'nhanvienkd' || role === 'truongphong') return 'Kinh doanh';
     if (role === 'quanlynhansu' || role === 'tongquanly') return 'Văn phòng';
@@ -42,7 +40,7 @@ export const HRManagerView = () => {
     return <ActivityIndicator size="small" color={COLORS.primary} style={{ marginTop: 20 }} />;
   }
 
-  if (staffOnShift.length === 0) {
+  if (!staffOnShift.length) {
     return (
       <View style={localStyles.notificationCard}>
         <Ionicons name="checkmark-circle-outline" size={24} color={COLORS.primary} />
@@ -52,43 +50,43 @@ export const HRManagerView = () => {
   }
 
   return (
-  <View>
-    {staffOnShift.map(staff => {
-      const today = new Date().toISOString().split('T')[0];
-      // [SỬA LỖI] Sử dụng optional chaining để tránh lỗi khi schedule không tồn tại.
-      const shiftInfo = staff.schedule?.[today];
+    <View>
+      {staffOnShift.map((staff) => {
+        const uid = staff.uid ?? 'unknown';
+        const displayName = staff.displayName ?? 'Chưa đặt tên';
+        const role = staff.role;
+        const today = new Date().toISOString().split('T')[0];
+        const shiftInfo = staff.schedule?.[today] ?? null;
 
-      return (
-        <View key={staff.uid} style={staffStyles.baseCard}>
-          <Text style={staffStyles.staffName}>{staff.displayName}</Text>
-          <Text style={staffStyles.staffRole}>
-            MSNV: {staff.uid.slice(0, 8).toUpperCase()} | Phòng: {getDepartmentFromRole(staff.role)}
-          </Text>
+        return (
+          <View key={uid} style={staffStyles.baseCard}>
+            <Text style={staffStyles.staffName}>{displayName}</Text>
+            <Text style={staffStyles.staffRole}>
+              MSNV: {uid.slice(0, 8).toUpperCase()} | Phòng: {getDepartmentFromRole(role)}
+            </Text>
 
-          {/* [SỬA LỖI] Chỉ render thẻ ca làm việc nếu shiftInfo tồn tại */}
-          {shiftInfo && (
-            <View
-              style={[
-                staffStyles.shiftTag,
-                { backgroundColor: shiftInfo.shift === 'Sáng' ? '#E0F2FE' : '#FEF3C7' },
-              ]}
-            >
-              <Text
+            {shiftInfo && shiftInfo.shift && (
+              <View
                 style={[
-                  staffStyles.shiftTagText,
-                  { color: shiftInfo.shift === 'Sáng' ? '#0369A1' : '#92400E' },
+                  staffStyles.shiftTag,
+                  { backgroundColor: shiftInfo.shift === 'Sáng' ? '#E0F2FE' : '#FEF3C7' },
                 ]}
               >
-                Ca: {shiftInfo.shift}
-              </Text>
-            </View>
-          )}
-        </View>
-      );
-    })}
-  </View>
-);
-
+                <Text
+                  style={[
+                    staffStyles.shiftTagText,
+                    { color: shiftInfo.shift === 'Sáng' ? '#0369A1' : '#92400E' },
+                  ]}
+                >
+                  Ca: {shiftInfo.shift}
+                </Text>
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
 };
 
 // [THÊM] Style cục bộ cho component này

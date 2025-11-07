@@ -1,10 +1,7 @@
-// services/StaffService.tsx
 import { Account, Databases, Functions, Query } from "appwrite";
 import { account, config, databases, functions } from "../config/appwrite";
+import { UserRole } from "../context/AuthContext";
 import { ChatService } from "./ChatService";
-
-/* NOTE: re-export UserRole nếu dùng nơi khác */
-export type UserRole = "tongquanly" | "quanlynhansu" | "truongphong" | "thukho" | "nhanvien" | "unassigned";
 
 export interface StaffUser {
   uid: string;
@@ -24,10 +21,10 @@ export interface StaffUser {
 }
 
 export class StaffService {
-  static getStaffByRole(arg0: string) {
+  static getStaffByRole(arg0: string): StaffUser[] | PromiseLike<StaffUser[]> {
     throw new Error('Method not implemented.');
   }
-  static getStaffList(uid: any, role: string, managerId: string | null) {
+  static getStaffList($id: string, role: string, managerIdToUse: string): StaffUser[] | PromiseLike<StaffUser[]> {
     throw new Error('Method not implemented.');
   }
   private databases: Databases;
@@ -42,16 +39,6 @@ export class StaffService {
     this.functions = functions;
     this.databaseId = config.databaseId;
     this.userCollectionId = config.userCollectionId;
-  }
-
-  async resetPassword(email: string): Promise<void> {
-    try {
-      // Thay bằng URL thực tế xử lý reset password trong app / web của bạn
-      await this.account.createRecovery(email, "https://yourapp.example/reset-password");
-    } catch (error: any) {
-      console.error("Error in StaffService.resetPassword:", error);
-      throw new Error("Không thể gửi email đặt lại mật khẩu do lỗi không xác định.");
-    }
   }
 
   private mapDocToStaff(doc: any): StaffUser {
@@ -73,13 +60,17 @@ export class StaffService {
     };
   }
 
-  /**
-   * Trả về danh sách nhân viên có schedule.
-   * Nếu attribute để sắp xếp (displayName) không hợp lệ => fallback orderDesc('$createdAt')
-   */
+  async resetPassword(email: string): Promise<void> {
+    try {
+      await this.account.createRecovery(email, "https://yourapp.example/reset-password");
+    } catch (error: any) {
+      console.error("Error in StaffService.resetPassword:", error);
+      throw new Error("Không thể gửi email đặt lại mật khẩu.");
+    }
+  }
+
   async getAllStaffWithSchedule(): Promise<StaffUser[]> {
     try {
-      // Thử order theo displayName; nếu server trả lỗi attribute not found, catch bên dưới và thử theo createdAt
       try {
         const response = await this.databases.listDocuments(this.databaseId, this.userCollectionId, [
           Query.notEqual("role", "unassigned"),
@@ -87,9 +78,10 @@ export class StaffService {
         ]);
         return (response.documents || []).map((d: any) => this.mapDocToStaff(d));
       } catch (err: any) {
-        const msg = (err && err.message) || "";
-        if (msg.toLowerCase().includes("attribute not found") || msg.toLowerCase().includes("invalid query")) {
-          // fallback
+        if (
+          err?.message?.toLowerCase().includes("attribute not found") ||
+          err?.message?.toLowerCase().includes("invalid query")
+        ) {
           const response = await this.databases.listDocuments(this.databaseId, this.userCollectionId, [
             Query.notEqual("role", "unassigned"),
             Query.orderDesc("$createdAt"),
@@ -111,24 +103,26 @@ export class StaffService {
   ): Promise<StaffUser[]> {
     if (!currentUserUid || !currentUserRole) return [];
 
-    const isTopLevelManagement = currentUserRole === "tongquanly" || currentUserRole === "quanlynhansu";
+    const isTopLevelManagement = ["tongquanly", "quanlynhansu"].includes(currentUserRole);
 
     if (isTopLevelManagement) {
       const response = await this.databases.listDocuments(this.databaseId, this.userCollectionId);
       return (response.documents || [])
         .map((d: any) => this.mapDocToStaff(d))
         .filter((u) => u.uid !== currentUserUid);
-    } else if (currentUserRole === "truongphong" || currentUserRole === "thukho") {
-      const staffQuery = this.databases.listDocuments(this.databaseId, this.userCollectionId, [
-        Query.equal("managerId", currentUserUid),
-      ]);
-      const unassignedQuery = this.databases.listDocuments(this.databaseId, this.userCollectionId, [
-        Query.equal("role", "unassigned"),
+    } else if (["truongphong", "thukho"].includes(currentUserRole)) {
+      const [staffResponse, unassignedResponse] = await Promise.all([
+        this.databases.listDocuments(this.databaseId, this.userCollectionId, [
+          Query.equal("managerId", currentUserUid),
+        ]),
+        this.databases.listDocuments(this.databaseId, this.userCollectionId, [
+          Query.equal("role", "unassigned"),
+        ]),
       ]);
 
-      const [staffResponse, unassignedResponse] = await Promise.all([staffQuery, unassignedQuery]);
       const staffList = (staffResponse.documents || []).map((d: any) => this.mapDocToStaff(d));
       const unassignedList = (unassignedResponse.documents || []).map((d: any) => this.mapDocToStaff(d));
+
       return [...staffList, ...unassignedList];
     }
 
@@ -136,15 +130,12 @@ export class StaffService {
   }
 
   async getManagers(): Promise<StaffUser[]> {
-    // Nếu SDK không hỗ trợ equal với mảng, dùng Query.or
     try {
-      // Prefer OR form to be safe
       const response = await this.databases.listDocuments(this.databaseId, this.userCollectionId, [
         Query.or([Query.equal("role", "truongphong"), Query.equal("role", "thukho")]),
       ]);
       return (response.documents || []).map((d: any) => this.mapDocToStaff(d));
     } catch (err) {
-      // fallback đơn giản: lấy tất cả, filter phía client
       console.warn("Warning getManagers fallback:", err);
       const response = await this.databases.listDocuments(this.databaseId, this.userCollectionId);
       return (response.documents || [])
@@ -153,49 +144,47 @@ export class StaffService {
     }
   }
 
-  async getStaffByRole(role: UserRole): Promise<StaffUser[]> {
-    const response = await this.databases.listDocuments(this.databaseId, this.userCollectionId, [Query.equal("role", role)]);
+  async getStaffByRole(role?: UserRole): Promise<StaffUser[]> {
+    if (!role || role === "unassigned") return [];
+
+    const response = await this.databases.listDocuments(this.databaseId, this.userCollectionId, [
+      Query.equal("role", role),
+    ]);
     return (response.documents || []).map((d: any) => this.mapDocToStaff(d));
   }
 
   async updateStaff(uid: string, data: Partial<StaffUser>) {
     let currentUserData: StaffUser | null = null;
+
     try {
       const userDoc = await this.databases.getDocument(this.databaseId, this.userCollectionId, uid);
       currentUserData = this.mapDocToStaff(userDoc);
     } catch (error) {
-      console.warn(`User with uid ${uid} not found for update. Proceeding to create if needed.`, error);
+      console.warn(`User ${uid} not found. Proceeding to create if needed.`, error);
     }
 
-    // xử lý chuyển manager => cập nhật chat phòng ban
     if (currentUserData && data.managerId !== undefined && data.managerId !== currentUserData.managerId) {
-      const oldManagerId = currentUserData.managerId || null;
-      const newManagerId = data.managerId || null;
       try {
-        await ChatService.updateUserDepartmentChat(uid, oldManagerId, newManagerId);
+        await ChatService.updateUserDepartmentChat(uid, currentUserData.managerId, data.managerId);
       } catch (err) {
-        console.error("Warning: ChatService.updateUserDepartmentChat failed:", err);
+        console.error("ChatService.updateUserDepartmentChat failed:", err);
       }
     }
 
-    // tạo phòng chat nếu được gán vai trò quản lý
-    if (data.role && (data.role === "truongphong" || data.role === "thukho")) {
-      if (!currentUserData || !(currentUserData.role === "truongphong" || currentUserData.role === "thukho")) {
-        const managerName = (data.displayName || currentUserData?.displayName || "Quản lý");
+    if (data.role && ["truongphong", "thukho"].includes(data.role)) {
+      if (!currentUserData || !["truongphong", "thukho"].includes(currentUserData.role || "")) {
         try {
+          const managerName = data.displayName || currentUserData?.displayName || "Quản lý";
           await ChatService.createDepartmentChat(uid, managerName);
         } catch (err) {
-          console.error("Warning: ChatService.createDepartmentChat failed:", err);
+          console.error("ChatService.createDepartmentChat failed:", err);
         }
       }
     }
 
-    // Cập nhật document (Appwrite updateDocument sẽ fail nếu document không tồn tại)
     try {
       await this.databases.updateDocument(this.databaseId, this.userCollectionId, uid, data as any);
     } catch (err) {
-      // Nếu document không tồn tại, bạn có thể createDocument nếu muốn:
-      // await this.databases.createDocument(this.databaseId, this.userCollectionId, uid, data as any);
       console.error("Error updating staff:", err);
       throw err;
     }
@@ -205,7 +194,7 @@ export class StaffService {
     try {
       await this.databases.deleteDocument(this.databaseId, this.userCollectionId, uid);
     } catch (error: any) {
-      console.error("Error deleting staff document:", error);
+      console.error("Error deleting staff:", error);
       throw new Error(error.message || "Không thể xóa người dùng.");
     }
   }
@@ -214,18 +203,14 @@ export class StaffService {
     try {
       const userDoc = await this.databases.getDocument(this.databaseId, this.userCollectionId, uid);
       const userData = this.mapDocToStaff(userDoc);
-      const monthlyHours = userData.monthlyHours || 0;
-      const monthlySalary = userData.monthlySalary || 0;
-      const userHourlyRate = userData.hourlyRate || 0;
       const hoursToAdd = 8;
-
       await this.databases.updateDocument(this.databaseId, this.userCollectionId, uid, {
-        monthlyHours: monthlyHours + hoursToAdd,
-        monthlySalary: monthlySalary + hoursToAdd * userHourlyRate,
+        monthlyHours: (userData.monthlyHours || 0) + hoursToAdd,
+        monthlySalary: (userData.monthlySalary || 0) + hoursToAdd * (userData.hourlyRate || 0),
       });
     } catch (error) {
       console.error("Error checking in staff:", error);
-      throw new Error("User not found or error updating check-in data.");
+      throw new Error("Không thể cập nhật giờ công.");
     }
   }
 
@@ -233,12 +218,12 @@ export class StaffService {
     try {
       const userDoc = await this.databases.getDocument(this.databaseId, this.userCollectionId, uid);
       const userData = this.mapDocToStaff(userDoc);
-      const currentSchedule = { ...(userData.schedule || {}) };
-      currentSchedule[date] = { shift, note };
-      await this.databases.updateDocument(this.databaseId, this.userCollectionId, uid, { schedule: currentSchedule });
+      const schedule = { ...(userData.schedule || {}) };
+      schedule[date] = { shift, note };
+      await this.databases.updateDocument(this.databaseId, this.userCollectionId, uid, { schedule });
     } catch (error) {
       console.error("Error assigning schedule:", error);
-      throw new Error("User not found or error updating schedule.");
+      throw new Error("Không thể cập nhật lịch làm việc.");
     }
   }
 
@@ -246,16 +231,14 @@ export class StaffService {
     try {
       const userDoc = await this.databases.getDocument(this.databaseId, this.userCollectionId, uid);
       const userData = this.mapDocToStaff(userDoc);
-      const currentSchedule = { ...(userData.schedule || {}) };
-      dates.forEach((date) => {
-        currentSchedule[date] = { shift, note };
-      });
-      await this.databases.updateDocument(this.databaseId, this.userCollectionId, uid, { schedule: currentSchedule });
+      const schedule = { ...(userData.schedule || {}) };
+      dates.forEach((date) => (schedule[date] = { shift, note }));
+      await this.databases.updateDocument(this.databaseId, this.userCollectionId, uid, { schedule });
     } catch (error) {
       console.error("Error assigning bulk schedule:", error);
-      throw new Error("User not found or error updating bulk schedule.");
+      throw new Error("Không thể cập nhật lịch hàng loạt.");
     }
   }
 }
+export { UserRole };
 
-//export { UserRole };

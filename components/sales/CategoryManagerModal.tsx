@@ -3,7 +3,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useAuth } from '../../context/AuthContext'; // Giữ lại
+import { useAuth, AppwriteUser } from '../../context/AuthContext'; // Giữ lại
 import { Category, CategoryService } from '../../services/CategoryService'; // Sửa: Import cả service và type từ một nơi
 import { styles } from '../../styles/homeStyle';
 interface CategoryManagerModalProps {
@@ -27,7 +27,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isVi
     }
     if (newCategoryName.trim() === '') return;
     try {
-      await CategoryService.addCategory(newCategoryName.trim()); // Sửa: Sử dụng CategoryService
+      await CategoryService.addCategory(newCategoryName.trim(), currentUser as AppwriteUser); // Sửa: Sử dụng CategoryService và truyền currentUser
       setNewCategoryName('');
       onShowMessage('Thành công', 'Category đã được thêm.');
     } catch (e: any) {
