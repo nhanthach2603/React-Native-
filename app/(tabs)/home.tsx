@@ -18,8 +18,7 @@ export default function HomeScreen() {
   const [searchText, setSearchText] = useState('');
   const [productLoading, setProductLoading] = useState(true);
 
-  // [THÊM] Xác định vai trò quản lý để hiển thị danh sách nhân viên
-  const isManager = ['tongquanly', 'quanlynhansu', 'truongphong', 'thukho'].includes(currentUser?.role || '');
+
   
   // [SỬA] Thống nhất logic hiển thị vai trò dựa trên trường `role`
   const getRoleDisplay = () => {

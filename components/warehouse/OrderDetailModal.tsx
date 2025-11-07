@@ -39,7 +39,7 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
             <Text style={styles.warehouseStyles.orderId}>ĐH: {order.id.slice(-6).toUpperCase()}</Text>
             <Text style={styles.warehouseStyles.orderInfo}>Khách hàng: {order.customerName || 'N/A'}</Text>
             <Text style={styles.warehouseStyles.orderInfo}>Người tạo: {order.creatorName}</Text>
-            <Text style={styles.warehouseStyles.orderInfo}>Ngày tạo: {order.createdAt.toDate().toLocaleDateString('vi-VN')}</Text>
+            <Text style={styles.warehouseStyles.orderInfo}>Ngày tạo: {order.createdAt.toLocaleDateString('vi-VN')}</Text>
             <Text style={styles.warehouseStyles.orderInfo}>Tổng tiền: {order.totalAmount.toLocaleString('vi-VN')} VND</Text>
             
             <Text style={[styles.warehouseStyles.itemsTitle, { marginTop: 15 }]}>Sản phẩm:</Text>

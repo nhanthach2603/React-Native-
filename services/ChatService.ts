@@ -39,7 +39,7 @@ export const ChatService = {
     try {
       await databases.getDocument(config.databaseId, config.roomCollectionId, privateRoomId);
       return privateRoomId;
-    } catch (_) {
+    } catch {
       const roomData = {
         name: `Private Chat`,
         type: 'private',

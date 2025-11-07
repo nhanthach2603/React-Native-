@@ -1,6 +1,6 @@
 // app/(tabs)/warehouse.tsx
 
-import { StaffUser } from '@/services/StaffService';
+import { StaffUser } from '../../services/StaffService';
 import { Query } from 'appwrite';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -46,56 +46,135 @@ export default function WarehouseScreen() {
   const usersCollectionId = process.env.EXPO_PUBLIC_APPWRITE_COLLECTION_USERS!;
 
   useEffect(() => {
-    let unsubscribe: () => void;
     if (!user?.$id) return;
 
-    const fetchInitialDataAndSubscribe = async () => {
-      setLoading(true);
-      let queries: Query[] = [];
-      
-      if (role === 'thukho') {
-        queries.push(Query.equal('warehouseManagerId', user.$id));
-        // Lấy danh sách nhân viên kho để phân công
-        const staffResult = await databases.listDocuments(dbId, usersCollectionId, [
-            Query.equal('managerId', user.$id),
-            Query.equal('role', 'nhanvienkho')
-        ]);
-        setWarehouseStaff(staffResult.documents.map(d => ({...d, uid: d.$id, displayName: d.name})) as StaffUser[]);
-      } else if (role === 'nhanvienkho') {
-        queries.push(Query.equal('assignedTo', user.$id));
-      } else if (role === 'truongphong') {
-        // Trưởng phòng thấy tất cả đơn hàng trong kho (trạng thái liên quan đến kho)
-        queries.push(Query.equal('status', ['Confirmed', 'Assigned', 'Processing', 'Completed']));
-      } else {
-        setLoading(false);
-        return;
-      }
+    const fetchData = async () => {
+        if (!user?.$id) return;
+        setLoading(true);
+        let queries: any[] = [];
 
-      // Lấy dữ liệu ban đầu
-      const initialOrders = await databases.listDocuments(dbId, ordersCollectionId, queries);
-      const formattedOrders = initialOrders.documents.map(doc => ({ ...doc, id: doc.$id, items: JSON.parse(doc.items) })) as Order[];
-      setOrders(formattedOrders);
-      setLoading(false);
+        if (role === 'thukho') {
+            queries.push(Query.equal('warehouseManagerId', user.$id));
+            const staffResult = await databases.listDocuments(dbId, usersCollectionId, [
+                Query.equal('managerId', user.$id),
+                Query.equal('role', 'nhanvienkho')
+            ]);
+            setWarehouseStaff(staffResult.documents.map(d => ({ ...d, uid: d.$id, displayName: d.name })) as StaffUser[]);
+        } else if (role === 'nhanvienkho') {
+            queries.push(Query.equal('assignedTo', user.$id));
+        } else if (role === 'truongphong') {
+            queries.push(Query.contains('status', ['Confirmed', 'Assigned', 'Processing', 'Completed']));
+        } else {
+            setLoading(false);
+            return;
+        }
 
-      // Lắng nghe thay đổi
-      unsubscribe = client.subscribe(`databases.${dbId}.collections.${ordersCollectionId}.documents`, response => {
-          // Khi có thay đổi, fetch lại toàn bộ danh sách để đơn giản hóa logic
-          // Có thể tối ưu hơn bằng cách cập nhật/thêm/xóa từng document
-          databases.listDocuments(dbId, ordersCollectionId, queries).then(updatedOrders => {
-              const updatedFormattedOrders = updatedOrders.documents.map(doc => ({ ...doc, id: doc.$id, items: JSON.parse(doc.items) })) as Order[];
-              setOrders(updatedFormattedOrders);
-          });
-      });
+        try {
+            const initialOrders = await databases.listDocuments(dbId, ordersCollectionId, queries);
+            const formattedOrders = initialOrders.documents.map(doc => {
+                try {
+                    const items = typeof doc.items === 'string' ? JSON.parse(doc.items) : doc.items || [];
+                    return {
+                        id: doc.$id,
+                        creatorId: doc.creatorId || '',
+                        creatorName: doc.creatorName || 'Unknown',
+                        items: items,
+                        status: doc.status || 'Draft',
+                        totalAmount: doc.totalAmount || 0,
+                        createdAt: doc.createdAt ? new Date(doc.createdAt) : new Date(),
+                        updatedAt: doc.updatedAt ? new Date(doc.updatedAt) : new Date(),
+                        warehouseManagerId: doc.warehouseManagerId,
+                        warehouseManagerName: doc.warehouseManagerName,
+                        revisionNote: doc.revisionNote,
+                        customerName: doc.customerName,
+                        customerPhone: doc.customerPhone,
+                        customerAddress: doc.customerAddress,
+                        assignedTo: doc.assignedTo,
+                        assignedToName: doc.assignedToName,
+                        managerId: doc.managerId
+                    } as Order;
+                } catch (parseError) {
+                    console.error('Lỗi parse items cho document:', doc.$id, parseError);
+                    return {
+                        id: doc.$id,
+                        creatorId: doc.creatorId || '',
+                        creatorName: doc.creatorName || 'Unknown',
+                        items: [],
+                        status: 'Draft' as OrderStatus,
+                        totalAmount: 0,
+                        createdAt: new Date(),
+                        updatedAt: new Date()
+                    } as Order;
+                }
+            });
+            setOrders(formattedOrders);
+        } catch (error) {
+            console.error('Lỗi khi lấy dữ liệu orders:', error);
+            Alert.alert('Lỗi', 'Không thể tải danh sách đơn hàng');
+        } finally {
+            setLoading(false);
+        }
     };
 
-    fetchInitialDataAndSubscribe();
+    fetchData();
+
+    const unsubscribe = client.subscribe(`databases.${dbId}.collections.${ordersCollectionId}.documents`, (response) => {
+        try {
+            const updatedOrder = response.payload as any;
+
+            let items = [];
+            try {
+                items = typeof updatedOrder.items === 'string' ? JSON.parse(updatedOrder.items) : updatedOrder.items || [];
+            } catch (parseError) {
+                console.error('Lỗi parse items cho updatedOrder:', updatedOrder.$id, parseError);
+                items = [];
+            }
+
+            const formattedOrder = {
+                id: updatedOrder.$id,
+                creatorId: updatedOrder.creatorId || '',
+                creatorName: updatedOrder.creatorName || 'Unknown',
+                items: items,
+                status: updatedOrder.status || 'Draft',
+                totalAmount: updatedOrder.totalAmount || 0,
+                createdAt: updatedOrder.createdAt ? new Date(updatedOrder.createdAt) : new Date(),
+                updatedAt: updatedOrder.updatedAt ? new Date(updatedOrder.updatedAt) : new Date(),
+                warehouseManagerId: updatedOrder.warehouseManagerId,
+                warehouseManagerName: updatedOrder.warehouseManagerName,
+                revisionNote: updatedOrder.revisionNote,
+                customerName: updatedOrder.customerName,
+                customerPhone: updatedOrder.customerPhone,
+                customerAddress: updatedOrder.customerAddress,
+                assignedTo: updatedOrder.assignedTo,
+                assignedToName: updatedOrder.assignedToName,
+                managerId: updatedOrder.managerId
+            } as Order;
+
+            setOrders(prev => {
+                const filtered = prev.filter(o => o.id !== formattedOrder.id);
+
+                let shouldShow = true;
+                if (role === 'thukho' && formattedOrder.warehouseManagerId !== user?.$id) shouldShow = false;
+                if (role === 'nhanvienkho' && formattedOrder.assignedTo !== user?.$id) shouldShow = false;
+                if (role === 'truongphong' && !['Confirmed', 'Assigned', 'Processing', 'Completed'].includes(formattedOrder.status)) shouldShow = false;
+
+                if (shouldShow) {
+                    return [...filtered, formattedOrder].sort((a, b) =>
+                        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                    );
+                } else {
+                    return filtered;
+                }
+            });
+        } catch (error) {
+            console.error('Lỗi xử lý real-time update:', error);
+        }
+    });
 
     return () => {
-      if (unsubscribe) {
         unsubscribe();
-      }
     };
-  }, [role, user?.$id]);
+}, [role, user?.$id, dbId, ordersCollectionId, usersCollectionId]);
 
   const handleUpdateStatus = async (order: Order) => {
     // [SỬA LỖI] Dọn dẹp logic, đảm bảo điều hướng đến màn hình soạn hàng và cập nhật trạng thái

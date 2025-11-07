@@ -165,7 +165,7 @@ export class StaffService {
 
     if (currentUserData && data.managerId !== undefined && data.managerId !== currentUserData.managerId) {
       try {
-        await ChatService.updateUserDepartmentChat(uid, currentUserData.managerId, data.managerId);
+        await ChatService.updateUserDepartmentChat(uid, currentUserData.managerId ?? null, data.managerId ?? null);
       } catch (err) {
         console.error("ChatService.updateUserDepartmentChat failed:", err);
       }

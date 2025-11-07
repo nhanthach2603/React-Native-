@@ -35,6 +35,7 @@ export interface Order {
   customerName?: string;
   customerPhone?: string;
   customerAddress?: string;
+  assignedTo?: string; // ID của người được phân công
   assignedToName?: string;
   managerId?: string;
 }

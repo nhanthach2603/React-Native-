@@ -157,6 +157,30 @@ export default function PickingScreen() {
         </View>
       </Modal>
 
+      {/* Footer Buttons */}
+      <View style={styles.pickingStyles.footer}>
+        <TouchableOpacity
+          style={[styles.pickingStyles.footerButton, styles.pickingStyles.reportButton]}
+          onPress={() => setReportModalVisible(true)}
+          disabled={loading}
+        >
+          <Ionicons name="warning-outline" size={20} color="#FFFFFF" />
+          <Text style={styles.pickingStyles.footerButtonText}>Báo Cáo Vấn Đề</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.pickingStyles.footerButton,
+            styles.pickingStyles.completeButton,
+            (!allItemsChecked || loading) && styles.pickingStyles.disabledButton
+          ]}
+          onPress={handleCompletePicking}
+          disabled={!allItemsChecked || loading}
+        >
+          <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
+          <Text style={styles.pickingStyles.footerButtonText}>{loading ? 'Đang xử lý...' : 'Hoàn Thành'}</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Thanh điều hướng nhanh */}
       <QuickNav />
     </View>

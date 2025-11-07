@@ -49,6 +49,7 @@ export default function ChatRoomScreen() {
       await ChatService.sendMessage(messageToSend);
     } catch (e) {
       Alert.alert('Lỗi gửi tin', 'Không thể gửi tin nhắn.');
+      console.error('Failed to send message:', e);
       setNewMessage(messageToSend.text); // Khôi phục lại tin nhắn nếu gửi lỗi
     }
   };
@@ -98,7 +99,7 @@ export default function ChatRoomScreen() {
 
 
   const renderMessageContent = (item: IMessage) => {
-    const isMyMessage = item.senderId === user?.uid;
+    const isMyMessage = item.senderId === user?.$id;
     const textColor = isMyMessage ? '#fff' : '#1F2937';
 
     if (item.imageUrl) {

@@ -24,7 +24,7 @@ export const pickingStyles = StyleSheet.create({
     footerButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 8, marginHorizontal: 5 },
     reportButton: { backgroundColor: COLORS.error },
     completeButton: { backgroundColor: COLORS.primary },
-    buttonText: { color: COLORS.white, fontWeight: 'bold', fontSize: 16, marginLeft: 8 },
+    footerButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: 16, marginLeft: 8 },
     disabledButton: { backgroundColor: '#D1D5DB' },
     reportInput: { width: '100%', height: 100, borderColor: '#DDD', borderWidth: 1, borderRadius: 8, padding: 10, textAlignVertical: 'top', marginBottom: 20, fontSize: 16 },
      quickNavContainer: {

@@ -50,7 +50,7 @@ async function importUsers() {
             const { uid, email, password, displayName, role, ...prefsData } = userData;
             try {
                 // Bước 1: Tạo người dùng trong Appwrite Auth
-                const newUser = await users.create(uid, email, null, password, displayName);
+                await users.create(uid, email, null, password, displayName);
                 console.log(`   -> Đã tạo Auth user: ${email}`);
 
                 // Bước 2: Cập nhật Prefs (chứa role và các thông tin khác)

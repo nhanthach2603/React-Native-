@@ -93,9 +93,9 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({ isVisible, onClo
       // Thêm sản phẩm mới
       const newItem: OrderItem = {
         productId: product.id!,
-        productName: product.name,
-        sku: product.sku, // Sửa lỗi: Thêm sku
-        price: product.price,
+        productName: product.name ?? '',
+        sku: product.sku ?? '', // Sửa lỗi: Thêm sku
+        price: product.price ?? 0,
         qty: quantity,
         selectedVariant: variant,
       };
@@ -107,7 +107,8 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({ isVisible, onClo
 
   const availableProducts = allProducts.filter(p => {
     // const isInOrder = items.some(item => item.productId === p.id); // Có thể cho phép thêm nhiều biến thể của cùng 1 sản phẩm
-    const matchesSearch = p.name.toLowerCase().includes(productSearch.toLowerCase());
+    const matchesSearch = (p.name || '').toLowerCase().includes(productSearch.toLowerCase());
+
     return p.totalQuantity > 0 && matchesSearch;
   });
 
@@ -228,7 +229,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({ isVisible, onClo
                     <Text style={{ fontWeight: 'bold', fontSize: 16 }}>
                       {item.name} ({item.sku})
                     </Text>
-                    <Text style={{ color: '#6B7280', marginTop: 4 }}>Giá: {item.price.toLocaleString('vi-VN')} VND | Tồn kho: {item.totalQuantity} {item.unit}</Text>
+                    <Text style={{ color: '#6B7280', marginTop: 4 }}>Giá: {(item.price ?? 0).toLocaleString('vi-VN')} VND | Tồn kho: {item.totalQuantity} {item.unit || ''}</Text>
                   </View>
                 </TouchableOpacity>
               )}

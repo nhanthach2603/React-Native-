@@ -1,6 +1,11 @@
 // services/CategoryService.ts
 import { ID, Query } from "appwrite";
 import { config, databases, realtime } from "../config/appwrite";
+import { AppwriteUser } from "../context/AuthContext";
+
+interface AppwriteSubscription {
+  unsubscribe: () => void;
+}
 
 export interface Category {
   $id?: string;
@@ -96,7 +101,7 @@ export class CategoryService {
         console.log("Realtime category event:", response?.events);
         scheduleRefetch();
       }
-    );
+    ) as unknown as AppwriteSubscription;
 
     return () => {
       mounted = false;
@@ -105,14 +110,8 @@ export class CategoryService {
         refetchTimer = null;
       }
       try {
-        if (typeof sub === "function") {
-          sub();
-        } else if (sub && typeof (sub as any).unsubscribe === "function") {
-          (sub as any).unsubscribe();
-        } else if (sub && typeof (sub as any).close === "function") {
-          (sub as any).close();
-        } else {
-          try { (sub as any)(); } catch { /* ignore */ }
+        if (sub) {
+          sub.unsubscribe();
         }
       } catch (err) {
         console.warn("Warning while unsubscribing realtime for categories:", err);

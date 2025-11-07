@@ -59,6 +59,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log("userWithDetails:", userWithDetails);
       setCurrentUser(userWithDetails);
     } catch (e) {
+      console.error("Failed to refresh current user:", e);
       setUser(null);
       setCurrentUser(null);
     }

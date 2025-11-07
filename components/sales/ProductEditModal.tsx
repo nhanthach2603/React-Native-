@@ -78,14 +78,27 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({ isVisible, o
     }
 
     const stock = finalVariants.reduce((sum, v) => sum + (v.quantity || 0), 0);
-    const productData = { name, sku, unit, price, category, variants: finalVariants, stock, lastUpdatedBy: currentUser?.uid };
+    const productData = {
+      name: name ?? '',
+      sku: sku ?? '',
+      unit: unit ?? '',
+      price: price ?? 0,
+      category: category ?? '',
+      variants: finalVariants,
+      stock: stock ?? 0,
+      lastUpdatedBy: currentUser?.uid ?? '',
+      id: '', // Mặc định cho sản phẩm mới
+      totalQuantity: 0, // Mặc định cho sản phẩm mới
+      updatedAt: new Date().toISOString(), // Mặc định cho sản phẩm mới
+    };
 
     try {
       if (isEditing) {
         await onSave({
           ...productData, $id: productToEdit!.$id,
-          id: '',
-          totalQuantity: 0
+          id: productToEdit!.id, // Giữ nguyên id của sản phẩm đang chỉnh sửa
+          totalQuantity: productToEdit!.totalQuantity, // Giữ nguyên totalQuantity
+          updatedAt: new Date().toISOString(), // Cập nhật thời gian
         }); // Đảm bảo truyền đúng $id
       } else {
         await onSave(productData);

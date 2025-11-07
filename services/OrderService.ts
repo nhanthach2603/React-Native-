@@ -147,4 +147,17 @@ export class OrderService {
     const queries = [Query.equal('creatorId', salespersonId), Query.orderDesc('$updatedAt')];
     return createSubscription(queries, onUpdate);
   }
+
+  /**
+   * Subscribe đơn hàng của một thủ kho cụ thể (thukho)
+   */
+  static subscribeToWarehouseManagerOrders(
+    managerId: string,
+    onUpdate: (orders: Order[]) => void
+  ): () => void {
+    const queries = [Query.equal('warehouseManagerId', managerId), Query.orderDesc('$updatedAt')];
+    return createSubscription(queries, onUpdate);
+  }
 }
+export { Order };
+

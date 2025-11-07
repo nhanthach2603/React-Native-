@@ -290,7 +290,7 @@ export default function StaffScreen() {
                   currentUser ? (
                     <StaffListItem
                       item={item}
-                      currentUser={currentUser}
+                      currentUser={currentUser as StaffUser}
                       onAssignSchedule={() => handleAssignSchedule(item)}
                       onEditUser={() => handleEditUser(item)}
                       onDeleteUser={() => handleDeleteUser(item)}
