@@ -4,8 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { UserRole } from '../../context/AuthContext';
-import { FunctionService } from '../../services/ChatService'; // [SỬA] Import FunctionService
-import { StaffUser } from '../../services/StaffService'; // Giữ lại StaffUser type
+import { StaffService, StaffUser } from '../../services/StaffService'; // Giữ lại StaffUser type
 import { COLORS } from '../../styles/_colors';
 import { staffStyles } from '../../styles/staffScreen.styles';
 
@@ -14,11 +13,12 @@ export const HRManagerView = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const staffService = new StaffService();
     const fetchStaffOnShift = async () => {
       try {
-        // [SỬA] Gọi Cloud Function thay vì đọc trực tiếp từ Firestore
-        const result = await FunctionService.getStaffOnShift();
-        setStaffOnShift(result.data as StaffUser[]);
+        // [SỬA] Gọi hàm đã có sẵn để lấy tất cả nhân viên và lịch làm việc
+        const result = await staffService.getAllStaffWithSchedule();
+        setStaffOnShift(result); // Kết quả trả về trực tiếp là một mảng
       } catch (error: any) {
         console.error("Lỗi khi lấy danh sách nhân viên làm việc:", error.message);
         // Hiển thị lỗi cho người dùng nếu cần

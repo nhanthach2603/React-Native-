@@ -1,153 +1,150 @@
-import { Databases, ID, Query } from 'appwrite';
-import { config, databases } from '../config/appwrite';
-import { Order, OrderStatus, StaffUser } from '../services/';
+import { ID, Query } from 'appwrite';
+import { config, databases, functions, realtime } from '../config/appwrite';
+import { Order, OrderStatus } from './types';
 
-class OrderService {
-  private databases: Databases;
-  private databaseId: string;
-  private ordersCollectionId: string;
-  private staffCollectionId: string;
+const dbId = config.databaseId;
+const ordersCollectionId = config.orderCollectionId;
 
-  constructor() {
-    this.databases = databases;
-    this.databaseId = config.databaseId;
-    this.ordersCollectionId = config.orderCollectionId;
-    this.staffCollectionId = config.userCollectionId;
-  }
-
-  async createOrder(orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order> {
-    try {
-      const response = await this.databases.createDocument(
-        this.databaseId,
-        this.ordersCollectionId,
-        ID.unique(),
-        {
-          ...orderData,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
-      );
-      return { id: response.$id, ...response as unknown as Order };
-    } catch (error) {
-      console.error("Error creating order: ", error);
-      throw new Error("Không thể tạo đơn hàng.");
-    }
-  }
-
-  async getOrderById(orderId: string): Promise<Order | null> {
-    try {
-      const response = await this.databases.getDocument(
-        this.databaseId,
-        this.ordersCollectionId,
-        orderId
-      );
-      return { id: response.$id, ...response as unknown as Order };
-    } catch (error) {
-      console.error("Error getting order by ID: ", error);
-      return null;
-    }
-  }
-
-  async updateOrder(orderId: string, updates: Partial<Order>): Promise<Order> {
-    try {
-      const response = await this.databases.updateDocument(
-        this.databaseId,
-        this.ordersCollectionId,
-        orderId,
-        {
-          ...updates,
-          updatedAt: new Date().toISOString(),
-        }
-      );
-      return { id: response.$id, ...response as unknown as Order };
-    } catch (error) {
-      console.error("Error updating order: ", error);
-      throw new Error("Không thể cập nhật đơn hàng.");
-    }
-  }
-
-  async deleteOrder(orderId: string): Promise<void> {
-    try {
-      await this.databases.deleteDocument(
-        this.databaseId,
-        this.ordersCollectionId,
-        orderId
-      );
-    } catch (error) {
-      console.error("Error deleting order: ", error);
-      throw new Error("Không thể xóa đơn hàng.");
-    }
-  }
-
-  async getOrdersByStatus(status: OrderStatus): Promise<Order[]> {
-    try {
-      const response = await this.databases.listDocuments(
-        this.databaseId,
-        this.ordersCollectionId,
-        [Query.equal('status', status), Query.orderDesc('createdAt')]
-      );
-      return response.documents.map(doc => ({ id: doc.$id, ...doc as unknown as Order }));
-    } catch (error) {
-      console.error(`Error getting orders with status ${status}: `, error);
-      throw new Error(`Không thể tải đơn hàng với trạng thái ${status}.`);
-    }
-  }
-
-  async getOrdersByStaffId(staffId: string): Promise<Order[]> {
-    try {
-      const response = await this.databases.listDocuments(
-        this.databaseId,
-        this.ordersCollectionId,
-        [Query.equal('assignedTo', staffId), Query.orderDesc('createdAt')]
-      );
-      return response.documents.map(doc => ({ id: doc.$id, ...doc as unknown as Order }));
-    } catch (error) {
-      console.error(`Error getting orders for staff ${staffId}: `, error);
-      throw new Error(`Không thể tải đơn hàng cho nhân viên ${staffId}.`);
-    }
-    }
-
-  async assignOrderToStaff(orderId: string, staffId: string): Promise<Order> {
-    try {
-      const updatedOrder = await this.updateOrder(orderId, { assignedTo: staffId, status: 'picking' });
-      return updatedOrder;
-    } catch (error) {
-      console.error(`Error assigning order ${orderId} to staff ${staffId}: `, error);
-      throw new Error("Không thể gán đơn hàng cho nhân viên.");
-    }
-  }
-
-  async getPendingOrders(): Promise<Order[]> {
-    return this.getOrdersByStatus('pending');
-  }
-
-  async getPickingOrders(): Promise<Order[]> {
-    return this.getOrdersByStatus('picking');
-  }
-
-  async getCompletedOrders(): Promise<Order[]> {
-    return this.getOrdersByStatus('completed');
-  }
-
-  async getStaffUsers(): Promise<StaffUser[]> {
-    try {
-      const response = await this.databases.listDocuments(
-        this.databaseId,
-        this.staffCollectionId,
-        [
-          Query.select(['$id', 'name', 'role', 'email']),
-          Query.orderAsc('name')
-        ]
-      );
-      if (response.documents.length === 0) {
-        return [];
-      }
-      return response.documents.map(doc => ({ uid: doc.$id, ...doc as unknown as StaffUser }));
-    } catch (error) {
-      console.error("Error getting all staff with schedule: ", error);
-      throw new Error("Không thể tải danh sách nhân viên.");
-    }
-  }
+// Interface để type-safe subscription
+interface AppwriteSubscription {
+  unsubscribe: () => void;
 }
 
-export const orderService = new OrderService();
+/**
+ * Chuyển document Appwrite thành Order object
+ */
+const mapDocumentToOrder = (doc: any): Order => ({
+  ...doc,
+  id: doc.$id,
+  items: typeof doc.items === 'string' ? JSON.parse(doc.items) : doc.items || [],
+  createdAt: new Date(doc.createdAt ?? doc.$createdAt),
+  updatedAt: new Date(doc.updatedAt ?? doc.$updatedAt),
+});
+
+/**
+ * Tạo subscription an toàn
+ */
+const createSubscription = (
+  queries: string[],
+  onUpdate: (orders: Order[]) => void
+): (() => void) => {
+  let mounted = true;
+
+  const fetchAndNotify = async () => {
+    try {
+      const response = await databases.listDocuments(dbId, ordersCollectionId, queries);
+      const orders = response.documents.map(mapDocumentToOrder);
+      if (mounted) onUpdate(orders);
+    } catch (e) {
+      console.error('🔥 Lỗi khi lấy danh sách đơn hàng:', e);
+    }
+  };
+
+  fetchAndNotify(); // initial fetch
+
+  const channel = `databases.${dbId}.collections.${ordersCollectionId}.documents`;
+  const subscription = realtime.subscribe(channel, () => {
+    fetchAndNotify();
+  }) as unknown as AppwriteSubscription; // type assertion để IDE không gạch đỏ
+
+  return () => {
+    mounted = false;
+    if (subscription && typeof subscription.unsubscribe === 'function') {
+      subscription.unsubscribe();
+      console.log('✅ Unsubscribed from orders channel');
+    }
+  };
+};
+
+export class OrderService {
+  // ================================================================
+  // CRUD METHODS
+  // ================================================================
+
+  static async getOrdersByPicker(pickerId: string, statuses: OrderStatus[]): Promise<Order[]> {
+    const response = await databases.listDocuments(dbId, ordersCollectionId, [
+      Query.equal('assignedTo', pickerId),
+      Query.equal('status', statuses),
+      Query.orderDesc('updatedAt'),
+    ]);
+    return response.documents.map(mapDocumentToOrder);
+  }
+
+  static async addOrder(orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<any> {
+    const dataToSave = {
+      ...orderData,
+      items: JSON.stringify(orderData.items),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    return databases.createDocument(dbId, ordersCollectionId, ID.unique(), dataToSave);
+  }
+
+  static async updateOrder(orderId: string, orderData: Partial<Omit<Order, 'id' | 'createdAt'>>): Promise<any> {
+    const dataToUpdate: any = { ...orderData, updatedAt: new Date().toISOString() };
+    if (orderData.items) dataToUpdate.items = JSON.stringify(orderData.items);
+    return databases.updateDocument(dbId, ordersCollectionId, orderId, dataToUpdate);
+  }
+
+  static async deleteOrder(order: Order): Promise<any> {
+    return databases.deleteDocument(dbId, ordersCollectionId, order.id);
+  }
+
+  static async assignToWarehouseManager(orderId: string, managerId: string, managerName: string): Promise<any> {
+    return this.updateOrder(orderId, {
+      status: 'Assigned',
+      warehouseManagerId: managerId,
+      warehouseManagerName: managerName,
+    });
+  }
+
+  static async completeOrderAndUpdateStock(order: Order): Promise<any> {
+    const execution = await functions.createExecution(
+      'completeOrder',
+      JSON.stringify({ orderId: order.id })
+    );
+    if (execution.status !== 'completed' || execution.responseStatusCode !== 200) {
+      const errorMsg = execution.responseBody
+        ? JSON.parse(execution.responseBody).message
+        : 'Lỗi không xác định từ server function.';
+      throw new Error(errorMsg);
+    }
+    return JSON.parse(execution.responseBody);
+  }
+
+  // ================================================================
+  // SUBSCRIPTION METHODS
+  // ================================================================
+
+  /**
+   * Subscribe tất cả đơn hàng (tongquanly)
+   */
+  static subscribeToAllOrders(onUpdate: (orders: Order[]) => void): () => void {
+    const queries = [Query.orderDesc('$updatedAt')];
+    return createSubscription(queries, onUpdate);
+  }
+
+  /**
+   * Subscribe đơn hàng của manager và staff (truongphong)
+   */
+  static subscribeToManagerOrders(
+    managerId: string,
+    staffUids: string[],
+    onUpdate: (orders: Order[]) => void
+  ): () => void {
+    const creatorIds = [managerId, ...staffUids];
+    const queries = [Query.equal('creatorId', creatorIds), Query.orderDesc('$updatedAt')];
+    return createSubscription(queries, onUpdate);
+  }
+
+  /**
+   * Subscribe đơn hàng của một nhân viên kinh doanh cụ thể (nhanvienkd)
+   */
+  static subscribeToSalespersonOrders(
+    salespersonId: string,
+    onUpdate: (orders: Order[]) => void
+  ): () => void {
+    const queries = [Query.equal('creatorId', salespersonId), Query.orderDesc('$updatedAt')];
+    return createSubscription(queries, onUpdate);
+  }
+}

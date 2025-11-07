@@ -24,7 +24,7 @@ export default function RootIndex() {
       } else {
         // Nếu có vai trò hợp lệ, chuyển đến layout tab chính
         // Điều hướng đến layout group (tabs), Expo Router sẽ tự động hiển thị màn hình đầu tiên.
-        router.replace('/screens'); // Sửa: Điều hướng đến group 'screens', tab 'home' sẽ tự động hiển thị
+        router.replace('/(tabs)/home'); // Sửa: Điều hướng đến group 'screens', tab 'home' sẽ tự động hiển thị
       }
     } else {
       // Người dùng chưa đăng nhập, chuyển đến màn hình xác thực.

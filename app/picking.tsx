@@ -14,7 +14,8 @@ import {
 import BouncyCheckbox from 'react-native-bouncy-checkbox';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { QuickNav } from '../components/QuickNav';
-import { Order, OrderItem, OrderService } from '../services/OrderService';
+import { OrderService } from '../services/OrderService';
+import { Order, OrderItem } from '../services/types'; // [SỬA LỖI] Import Order và OrderItem từ file types.ts
 import { COLORS, styles } from '../styles/homeStyle';
 
 export default function PickingScreen() {

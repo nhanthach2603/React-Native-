@@ -18,7 +18,7 @@ import { AssignScheduleModal } from '../../components/staff/AssignScheduleModal'
 import { IndividualScheduleView } from '../../components/staff/IndividualScheduleView';
 import { StaffListItem } from '../../components/staff/StaffListItem';
 import { StaffModal, StaffUser } from '../../components/staff/StaffModal'; // Sửa: Import StaffUser từ đây
-import { account, databases, functions } from '../../config/appwrite';
+import { account, config, databases, functions } from '../../config/appwrite';
 import { useAuth } from '../../context/AuthContext';
 import { COLORS, styles } from '../../styles/homeStyle';
 
@@ -47,20 +47,17 @@ export default function StaffScreen() {
     if (!user || !isManagerView) return;
     setLoading(true);
     try {
-      const dbId = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!;
-      const usersCollectionId = process.env.EXPO_PUBLIC_APPWRITE_COLLECTION_USERS!;
-      
       let queries: string[] = [];
       if (currentUser?.role === 'truongphong' || currentUser?.role === 'thukho') {
         queries.push(Query.equal('managerId', user.$id));
       }
       
-      const staffListResult = await databases.listDocuments(dbId, usersCollectionId, queries);
+      const staffListResult = await databases.listDocuments(config.databaseId, config.userCollectionId, queries);
       const staffList = staffListResult.documents.map(doc => ({ ...doc, uid: doc.$id, displayName: doc.name })) as StaffUser[];
       setData(staffList);
 
       const managerRoles = ['truongphong', 'thukho', 'quanlynhansu', 'tongquanly'];
-      const managersResult = await databases.listDocuments(dbId, usersCollectionId, [Query.equal('role', managerRoles)]);
+      const managersResult = await databases.listDocuments(config.databaseId, config.userCollectionId, [Query.equal('role', managerRoles)]);
       setManagers(managersResult.documents.map(doc => ({ ...doc, uid: doc.$id, displayName: doc.name })) as StaffUser[]);
     } catch (e) {
       console.error('Lỗi khi tải danh sách nhân viên:', e);
@@ -74,9 +71,7 @@ export default function StaffScreen() {
     if (!user) return;
     setLoading(true);
     try {
-      const dbId = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!;
-      const usersCollectionId = process.env.EXPO_PUBLIC_APPWRITE_COLLECTION_USERS!;
-      const userDoc = await databases.getDocument(dbId, usersCollectionId, user.$id);
+      const userDoc = await databases.getDocument(config.databaseId, config.userCollectionId, user.$id);
       const scheduleData = {
         monthlyHours: userDoc.monthlyHours || 0,
         monthlySalary: userDoc.monthlySalary || 0,
@@ -154,8 +149,7 @@ export default function StaffScreen() {
       const updateData = { ...restData, name: displayName }; // Ánh xạ displayName sang name
       if (staffToEdit) {
         // Cập nhật người dùng hiện có
-        const dbId = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!;
-        await databases.updateDocument(dbId, process.env.EXPO_PUBLIC_APPWRITE_COLLECTION_USERS!, staffToEdit.uid, updateData);
+        await databases.updateDocument(config.databaseId, config.userCollectionId, staffToEdit.uid, updateData);
         // Alert.alert('Thành công', 'Đã cập nhật thông tin nhân viên.'); // Alert đã có trong onSave
         setModalVisible(false); // Chỉ đóng modal khi lưu thành công
         fetchStaffAndManagers(); // Tải lại danh sách nhân viên
@@ -188,8 +182,10 @@ export default function StaffScreen() {
     try {
       // Gọi Appwrite Function để xóa người dùng (an toàn hơn)
       const result = await functions.createExecution('deleteUser', JSON.stringify({ userId: staffToDelete.uid }));
-      if (result.statusCode !== 200) {
-        throw new Error(JSON.parse(result.response).message || 'Lỗi từ server function.');
+       // [SỬA] Sử dụng responseStatusCode và responseBody cho nhất quán và chính xác
+       if (result.status !== 'completed' || result.responseStatusCode !== 200) {
+        const errorMsg = result.responseBody ? JSON.parse(result.responseBody).message : 'Lỗi không xác định từ server function.';
+        throw new Error(errorMsg);
       }
       Alert.alert('Thành công', 'Nhân viên đã được xóa.');
       setDeleteConfirmVisible(false); // Đóng modal xác nhận
@@ -204,8 +200,9 @@ export default function StaffScreen() {
     try {
       // Logic này phức tạp và nên được xử lý bởi một Appwrite Function
       const result = await functions.createExecution('assignSchedule', JSON.stringify(data));
-       if (result.statusCode !== 200) {
-        throw new Error(JSON.parse(result.response).message || 'Lỗi từ server function.');
+       // [SỬA] Sử dụng responseStatusCode và responseBody
+       if (result.status !== 'completed' || result.responseStatusCode !== 200) {
+        throw new Error(JSON.parse(result.responseBody).message || 'Lỗi từ server function.');
       }
       fetchIndividualData(); // Tải lại lịch cá nhân
     } catch (e: any) {
@@ -217,9 +214,10 @@ export default function StaffScreen() {
     if (!user) return;
     try {
       // Logic này nên được xử lý bởi một Appwrite Function để đảm bảo tính toàn vẹn
-      const result = await functions.createExecution('checkIn', JSON.stringify({ userId: user.$id }));
-       if (result.statusCode !== 200) {
-        throw new Error(JSON.parse(result.response).message || 'Lỗi từ server function.');
+      const result: any = await functions.createExecution('checkIn', JSON.stringify({ userId: user.$id }));
+       // [SỬA] Sử dụng responseStatusCode và responseBody
+       if (result.status !== 'completed' || result.responseStatusCode !== 200) {
+        throw new Error(JSON.parse(result.responseBody).message || 'Lỗi từ server function.');
       }
       Alert.alert('Thành công', 'Đã chấm công! Giờ công và lương đã được cập nhật.');
       fetchIndividualData(); // Tải lại dữ liệu cá nhân
@@ -249,7 +247,8 @@ export default function StaffScreen() {
 
   if (isManagerView && data) {
     const isTopLevelManager = currentUser?.role === 'tongquanly' || currentUser?.role === 'quanlynhansu';
-(
+    // [SỬA LỖI] Thêm 'return' để render JSX
+    return (
       <View style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
         <View style={[styles.staffStyles.container, { flex: 1, paddingTop: insets.top + 20, paddingHorizontal: 0, paddingBottom: 0 }]}>
           {/* [THÊM] Thêm nút chuyển đổi view cho quản lý */}
@@ -267,7 +266,7 @@ export default function StaffScreen() {
                 <View style={styles.staffStyles.summaryCard}>
                   <View style={styles.staffStyles.summaryRow}>
                     <Ionicons name="business-outline" size={24} color={COLORS.primary} />
-                    <Text style={styles.staffStyles.summaryText}>Tổng Giờ Công: <Text style={styles.staffStyles.boldText}>{(data as StaffUser[]).reduce((sum, u) => sum + u.monthlyHours, 0)}</Text> giờ</Text>
+                    <Text style={styles.staffStyles.summaryText}>Tổng Giờ Công: <Text style={styles.staffStyles.boldText}>{(data as StaffUser[]).reduce((sum, u) => sum + (u.monthlyHours || 0), 0)}</Text> giờ</Text>
                   </View>
                   <View style={styles.staffStyles.summaryRow}>
                     <Ionicons name="wallet-outline" size={24} color={COLORS.accent} />
@@ -278,9 +277,11 @@ export default function StaffScreen() {
               <FlatList
                 data={data as StaffUser[]}
                 keyExtractor={(item) => item.uid}
-                renderItem={({ item }) => (
-                  <StaffListItem item={item} currentUser={currentUser!} onAssignSchedule={() => handleAssignSchedule(item)} onEditUser={() => handleEditUser(item)} onDeleteUser={() => handleDeleteUser(item)} />
-                )}
+                renderItem={({ item }) =>
+                  currentUser ? ( // [SỬA LỖI] Thêm kiểm tra để đảm bảo currentUser tồn tại
+                    <StaffListItem item={item} currentUser={currentUser} onAssignSchedule={() => handleAssignSchedule(item)} onEditUser={() => handleEditUser(item)} onDeleteUser={() => handleDeleteUser(item)} />
+                  ) : null // Không render gì nếu currentUser không tồn tại
+                }
                 style={styles.staffStyles.list}
                 contentContainerStyle={{ paddingBottom: 120 }}
               />
@@ -305,7 +306,7 @@ export default function StaffScreen() {
               onClose={() => setDeleteConfirmVisible(false)}
               onConfirm={confirmDeleteUser}
               title="Xác nhận xóa"
-              message={`Bạn có chắc chắn muốn xóa vĩnh viễn nhân viên "${staffToDelete.displayName}" không? Hành động này không thể hoàn tác.`}
+              message={`Bạn có chắc chắn muốn xóa vĩnh viễn nhân viên "${staffToDelete?.displayName}" không? Hành động này không thể hoàn tác.`}
               confirmButtonText="Xóa"
             />
           )}

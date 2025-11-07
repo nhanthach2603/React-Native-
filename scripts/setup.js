@@ -227,7 +227,13 @@ async function setupDatabase() {
     console.log('\n🎉 Quá trình cài đặt hoàn tất!');
 }
 
-setupDatabase().catch(error => {
-    console.error('\n❌ Đã xảy ra lỗi nghiêm trọng:');
-    console.error(error);
-});
+// Chỉ chạy setupDatabase() khi file này được thực thi trực tiếp
+if (require.main === module) {
+    setupDatabase().catch(error => {
+        console.error('\n❌ Đã xảy ra lỗi nghiêm trọng:');
+        console.error(error);
+    });
+}
+
+// Xuất schema để các script khác có thể sử dụng
+module.exports = { schema };

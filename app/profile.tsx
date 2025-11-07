@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { account, databases, storage } from '../config/appwrite';
+import { account, databases, storage, config } from '../config/appwrite';
 import { useAuth } from '../context/AuthContext';
 import { getRoleDisplayName } from '../utils/roles';
 
@@ -242,7 +242,7 @@ export default function ProfileScreen() {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace('/screens/home');
+      router.replace('/(tabs)/home');
     }
   };
 
@@ -258,10 +258,12 @@ export default function ProfileScreen() {
   const handleSaveProfile = async (data: { displayName: string; phoneNumber: string; dateOfBirth: string }) => {
     if (!currentUser?.$id) return;
     try {
-      const dbId = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!;
-      const usersCollectionId = process.env.EXPO_PUBLIC_APPWRITE_COLLECTION_USERS!;
+      const dbId = config.databaseId;
+      const usersCollectionId = config.userCollectionId;
 
-      // Cập nhật document trong collection Users
+      console.log("dbId:", dbId);
+      console.log("usersCollectionId:", usersCollectionId);
+
       await databases.updateDocument(dbId, usersCollectionId, currentUser.$id, {
         name: data.displayName, // Appwrite dùng 'name'
         phoneNumber: data.phoneNumber,
@@ -276,6 +278,13 @@ export default function ProfileScreen() {
       await refreshCurrentUser(); // Cập nhật lại thông tin user trong context
       Alert.alert('Thành công', 'Đã cập nhật thông tin cá nhân.');
     } catch (e: any) {
+      console.error("Lỗi khi cập nhật profile:", {
+        name: e.name,
+        code: e.code,
+        type: e.type,
+        response: e.response,
+        message: e.message,
+      });
       Alert.alert('Lỗi', `Không thể cập nhật: ${e.message}`);
     }
   };
@@ -292,7 +301,7 @@ export default function ProfileScreen() {
 
       Alert.alert('Thành công', 'Đã đổi mật khẩu thành công.');
     } catch (error: any) {
-      console.error("Lỗi đổi mật khẩu:", error.code);
+      console.error("Lỗi đổi mật khẩu:", JSON.stringify(error, null, 2));
       if (error.code === 401) { // Lỗi 401 thường là sai mật khẩu
         Alert.alert('Lỗi', 'Mật khẩu hiện tại không đúng. Vui lòng thử lại.');
       } else {
@@ -427,12 +436,12 @@ export default function ProfileScreen() {
           <View style={styles.staffStyles.infoRow}>
             <Ionicons name="calendar-outline" size={24} color="#6B7280" style={styles.staffStyles.infoIcon} />
             <Text style={styles.staffStyles.infoLabel}>Ngày sinh:</Text>
-            <Text style={styles.staffStyles.infoValue}>{currentUser.dateOfBirth || 'Chưa cập nhật'}</Text>
+            <Text style={styles.staffStyles.infoValue}>{formatDate(currentUser.dateOfBirth) || 'Chưa cập nhật'}</Text>
           </View>
           <View style={styles.staffStyles.infoRow}>
             <Ionicons name="person-add-outline" size={24} color="#6B7280" style={styles.staffStyles.infoIcon} />
             <Text style={styles.staffStyles.infoLabel}>Ngày tạo:</Text>
-            <Text style={styles.staffStyles.infoValue}>{formatDate(currentUser.createdAt)}</Text>
+            <Text style={styles.staffStyles.infoValue}>{formatDate(currentUser.$createdAt)}</Text>
           </View>
         </View>
 

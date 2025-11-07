@@ -3,10 +3,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useAuth } from '../../context/AuthContext';
-import { Category, ProductService } from '../../services/ProductService';
+import { useAuth } from '../../context/AuthContext'; // Giữ lại
+import { Category, CategoryService } from '../../services/CategoryService'; // Sửa: Import cả service và type từ một nơi
 import { styles } from '../../styles/homeStyle';
-
 interface CategoryManagerModalProps {
   isVisible: boolean;
   onClose: () => void;
@@ -28,7 +27,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isVi
     }
     if (newCategoryName.trim() === '') return;
     try {
-      await ProductService.addCategory(newCategoryName.trim());
+      await CategoryService.addCategory(newCategoryName.trim()); // Sửa: Sử dụng CategoryService
       setNewCategoryName('');
       onShowMessage('Thành công', 'Category đã được thêm.');
     } catch (e: any) {
@@ -45,9 +44,9 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isVi
       'Xác nhận xóa',
       `Bạn có chắc chắn muốn xóa Category "${name}" không?`,
       () => {
-        ProductService.deleteCategory(id)
+        CategoryService.deleteCategory(id) // Sửa: Sử dụng CategoryService
           .then(() => onShowMessage('Thành công', 'Category đã bị xóa.'))
-          .catch((e) => onShowMessage('Lỗi Xóa', e.message));
+          .catch((e: { message: string; }) => onShowMessage('Lỗi Xóa', e.message));
       }
     );
   };
@@ -60,7 +59,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isVi
           {canManage && (<View style={styles.salesStyles.categoryInputGroup}><TextInput style={styles.salesStyles.categoryInput} placeholder="Tên danh mục mới" value={newCategoryName} onChangeText={setNewCategoryName} /><TouchableOpacity onPress={handleAddCategory} style={styles.salesStyles.categoryAddButton}><Ionicons name="add-circle" size={40} color="#10B981" /></TouchableOpacity></View>)}
           <Text style={styles.salesStyles.categoryListTitle}>Danh sách hiện có:</Text>
           <ScrollView style={styles.salesStyles.categoryListContainer}>
-            {categories.length > 0 ? (categories.map(cat => (<View key={cat.id} style={styles.salesStyles.categoryItem}><Text style={styles.salesStyles.categoryName}>{cat.name}</Text>{canManage && (<TouchableOpacity onPress={() => handleDeleteCategory(cat.id!, cat.name)} style={styles.salesStyles.categoryDeleteButton}><Ionicons name="trash-outline" size={24} color="#EF4444" /></TouchableOpacity>)}</View>))) : (<Text style={styles.salesStyles.emptyText}>Không có danh mục nào.</Text>)}
+            {categories.length > 0 ? (categories.map(cat => (<View key={cat.$id} style={styles.salesStyles.categoryItem}><Text style={styles.salesStyles.categoryName}>{cat.name}</Text>{canManage && (<TouchableOpacity onPress={() => handleDeleteCategory(cat.$id!, cat.name)} style={styles.salesStyles.categoryDeleteButton}><Ionicons name="trash-outline" size={24} color="#EF4444" /></TouchableOpacity>)}</View>))) : (<Text style={styles.salesStyles.emptyText}>Không có danh mục nào.</Text>)}
           </ScrollView>
           <TouchableOpacity onPress={onClose} style={[styles.staffStyles.modalButton, styles.staffStyles.modalButtonSecondary, { width: '100%', marginTop: 20 }]}><Text style={styles.staffStyles.modalButtonText}>Đóng</Text></TouchableOpacity>
         </View>

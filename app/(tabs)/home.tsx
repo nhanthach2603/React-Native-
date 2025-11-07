@@ -6,7 +6,6 @@ import React, { useEffect, useState } from 'react'; // Thêm ScrollView
 import { ActivityIndicator, FlatList, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'; // Thêm ScrollView
 import { HRManagerView } from '../../components/home/HRManagerView';
 import { RoleFunctionsView } from '../../components/home/RoleFunctionsView';
-import { QuickNav } from '../../components/QuickNav';
 import { useAuth } from '../../context/AuthContext';
 import { Product, ProductService } from '../../services/ProductService'; // Import Product Service
 import { styles } from '../../styles/homeStyle';
@@ -29,10 +28,33 @@ export default function HomeScreen() {
     return getRoleDisplayName(currentUser?.role ?? null);
   };
 
-  // Lắng nghe dữ liệu sản phẩm real-time
+  // [SỬA] Tải dữ liệu ban đầu và lắng nghe thay đổi real-time
   useEffect(() => {
-    const unsubscribe = ProductService.subscribeToProducts((productsData) => {
-      setAllProducts(productsData);
+    // 1. Tải danh sách sản phẩm ban đầu
+    const fetchInitialProducts = async () => {
+      try {
+        setProductLoading(true);
+        const products = await ProductService.getAllProducts(); // Sửa: Gọi phương thức tĩnh
+        setAllProducts(products);
+      } catch (error) {
+        console.error("Lỗi khi tải sản phẩm ban đầu:", error);
+        // Có thể hiển thị thông báo lỗi cho người dùng ở đây
+      } finally {
+        setProductLoading(false);
+      }
+    };
+
+    fetchInitialProducts();
+
+    // 2. Lắng nghe các thay đổi real-time
+    const unsubscribe = ProductService.subscribeToProducts((payload) => { // Sửa: Gọi phương thức tĩnh
+      // Khi có thay đổi, fetch lại toàn bộ danh sách để đảm bảo dữ liệu đồng bộ.
+      // Đây là cách đơn giản nhất, bạn có thể tối ưu bằng cách xử lý payload
+      // để cập nhật, thêm, hoặc xóa item trong state `allProducts`.
+      fetchInitialProducts();
+      // Ví dụ về cách xử lý payload chi tiết hơn (chưa hoàn chỉnh):
+      // console.log('Realtime payload:', payload);
+      // setAllProducts(prevProducts => ...cập nhật state ở đây...);
       setProductLoading(false);
     });
 
@@ -58,17 +80,17 @@ export default function HomeScreen() {
 
   // Hàm lọc sản phẩm
   const filteredProducts = allProducts.filter(p => 
-    p.name.toLowerCase().includes(searchText.toLowerCase()) || 
-    p.sku.toLowerCase().includes(searchText.toLowerCase())
+    (p.name ?? '').toLowerCase().includes(searchText.toLowerCase()) || 
+    (p.sku ?? '').toLowerCase().includes(searchText.toLowerCase())
   );
 
   const renderProductItem = ({ item }: { item: Product }) => (
     <View style={styles.homeStyles.notificationCard}>
       <Ionicons name="pricetag-outline" size={20} color="#0E7490" />
       <View style={{marginLeft: 10, flex: 1, flexDirection: 'row', justifyContent: 'space-between'}}>
-        <Text style={styles.homeStyles.notificationText}>{item.name} ({item.sku})</Text>
-        <Text style={[styles.homeStyles.notificationText, {fontWeight: 'bold', color: item.totalQuantity <= 5 ? '#EF4444' : '#10B981'}]}>
-          Tồn: {item.totalQuantity} {item.unit}
+        <Text style={styles.homeStyles.notificationText}>{item.name || 'N/A'} ({item.sku || 'N/A'})</Text>
+        <Text style={[styles.homeStyles.notificationText, {fontWeight: 'bold', color: (item.stock ?? 0) <= 5 ? '#EF4444' : '#10B981'}]}>
+          Tồn: {item.stock ?? 0} {item.unit || ''}
         </Text>
       </View>
     </View>
@@ -145,7 +167,7 @@ export default function HomeScreen() {
               ) : (
                   <FlatList
                       data={filteredProducts.slice(0, 5)} // Chỉ hiển thị tối đa 5 kết quả đầu tiên trên Home Screen
-                      keyExtractor={item => item.id!}
+                      keyExtractor={item => item.$id!}
                       renderItem={renderProductItem}
                       scrollEnabled={false} // Tắt cuộn của FlatList để nó cuộn cùng ScrollView cha
                       ListEmptyComponent={() => (
@@ -157,7 +179,6 @@ export default function HomeScreen() {
           )}
         </View>
       </ScrollView>
-      <QuickNav />
     </View>
   );
 }

@@ -1,21 +1,21 @@
 // app/completed-orders.tsx
 
 import { Ionicons } from '@expo/vector-icons';
-import { Query } from 'appwrite';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    SectionList,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  SectionList,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OrderDetailModal } from '../components/warehouse/OrderDetailModal'; // Giả sử component này không phụ thuộc Firebase
-import { databases } from '../config/appwrite';
+import { OrderService } from '../services/OrderService'; // [CẢI THIỆN] Sử dụng OrderService
+import { Order } from '../services/types'; // [SỬA LỖI] Import Order từ file types.ts
 import { COLORS, styles } from '../styles/homeStyle';
-import { Order } from './screens/warehouse'; // Tái sử dụng kiểu Order từ warehouse.tsx
 
 interface GroupedOrders {
   title: string;
@@ -32,21 +32,16 @@ export default function CompletedOrdersScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
-  const dbId = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!;
-  const ordersCollectionId = process.env.EXPO_PUBLIC_APPWRITE_COLLECTION_ORDERS!;
-
   useEffect(() => {
     if (typeof staffUid === 'string') {
       const fetchCompletedOrders = async () => {
         setLoading(true);
         try {
-          // Lấy các đơn hàng đã hoàn thành trong tháng này do nhân viên này soạn
-          const response = await databases.listDocuments(dbId, ordersCollectionId, [
-            Query.equal('assignedTo', staffUid),
-            Query.equal('status', ['Completed', 'Shipped']), // Các trạng thái đã hoàn thành
-            // Bạn có thể thêm Query.greaterThan('$updatedAt', startOfMonth) nếu cần lọc chính xác theo tháng
+          // [CẢI THIỆN] Sử dụng OrderService để lấy dữ liệu, đảm bảo tính nhất quán
+          const completedOrders = await OrderService.getOrdersByPicker(staffUid, [
+            'Completed',
+            'Shipped',
           ]);
-          const completedOrders = response.documents.map(doc => ({ ...doc, id: doc.$id, items: JSON.parse(doc.items) })) as Order[];
           setOrders(completedOrders);
         } catch (error) {
           console.error("Lỗi khi tải đơn hàng đã hoàn thành:", error);
@@ -62,7 +57,7 @@ export default function CompletedOrdersScreen() {
   const groupedOrders = useMemo(() => {
     const groups: { [key: string]: Order[] } = {};
     orders.forEach(order => {
-      const date = new Date(order.$updatedAt).toLocaleDateString('vi-VN'); // Sửa: Dùng $updatedAt và new Date()
+      const date = new Date(order.updatedAt).toLocaleDateString('vi-VN');
       if (!groups[date]) {
         groups[date] = [];
       }

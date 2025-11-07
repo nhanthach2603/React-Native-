@@ -9,9 +9,26 @@
     "scheme": "quanlykho",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+
     "ios": {
       "supportsTablet": true
     },
+
+    "extra": {
+      "APPWRITE_ENDPOINT": "https://fra.cloud.appwrite.io/v1",
+      "APPWRITE_PROJECT_ID": "690c0955000fba893c0d",
+      "APPWRITE_API_KEY": "standard_39b79896aa13a6823f7d4d2d73b339a99bc6c4ad5b2a521803a0d0e2bf68957a17cae30292f11a897bdaf5453b8fdc100ea49ccedfd3c2fab1417777da26549eff09d8d9640ecc3ab3e2f3313df710383a8d59b3fdfbe4fd9be2bd8a0841620eedacd606914e0409cff570538287ee118e8adba9568cda035438384a8fdc2353",
+      "APPWRITE_DATABASE_ID": "690c09d1003548b1e06f",
+      "APPWRITE_COLLECTION_PRODUCTS": "products_collection",
+      "APPWRITE_COLLECTION_CATEGORIES": "categories_collection",
+      "APPWRITE_COLLECTION_ORDERS": "orders_collection",
+      "APPWRITE_COLLECTION_ROOMS": "chat_rooms_collection",
+      "APPWRITE_COLLECTION_MESSAGES": "messages_collection",
+      "APPWRITE_BUCKET_FILES": "files_bucket",
+      "APPWRITE_BUCKET_CHAT_FILES": "chat_files_bucket",
+      "APPWRITE_COLLECTION_USERS": "users_collection"
+    },
+
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -22,14 +39,12 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
+
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-    "extra": {
-      "APPWRITE_PROJECT_ID": "690c0955000fba893c0d",
-      "APPWRITE_ENDPOINT": "https://fra.cloud.appwrite.io/v1"
-    },
+
     "plugins": [
       "expo-router",
       [
@@ -45,6 +60,7 @@
         }
       ]
     ],
+
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": false

@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { databases, functions } from '../../config/appwrite';
+import { config, databases, functions } from '../../config/appwrite';
 import { useAuth } from '../../context/AuthContext';
 import { styles } from '../../styles/homeStyle';
 
@@ -31,11 +31,6 @@ export default function ChatListScreen() {
   const [isSearchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Nên lấy từ config.ts (nếu đã export) hoặc biến môi trường EXPO_PUBLIC_*
-  const dbId = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!;
-  const roomsCollectionId = process.env.EXPO_PUBLIC_APPWRITE_COLLECTION_ROOMS!;
-  const usersCollectionId = process.env.EXPO_PUBLIC_APPWRITE_COLLECTION_USERS!;
-
   // 2. Lấy danh sách phòng chat của tôi
   const fetchChatRooms = useCallback(async () => {
 		if (!user?.$id) {
@@ -45,7 +40,7 @@ export default function ChatListScreen() {
     setLoading(true);
     try {
       // Sử dụng Query.contains để tìm kiếm ID user trong mảng participants
-      const response = await databases.listDocuments(dbId, roomsCollectionId, [
+      const response = await databases.listDocuments(config.databaseId, config.roomCollectionId, [
         Query.contains('participants', user.$id)
       ]);
         
@@ -64,7 +59,7 @@ export default function ChatListScreen() {
       console.error("Lỗi khi tải phòng chat:", error);
     }
     setLoading(false);
-  }, [user?.$id, dbId, roomsCollectionId]); // Thêm dependencies
+  }, [user?.$id]); // Thêm dependencies
 
   useEffect(() => {
     fetchChatRooms();
@@ -76,7 +71,7 @@ export default function ChatListScreen() {
     const fetchUsers = async () => {
         try {
           // Lấy trường name và $id
-          const response = await databases.listDocuments(dbId, usersCollectionId, [
+          const response = await databases.listDocuments(config.databaseId, config.userCollectionId, [
             Query.select(['name', '$id']), // Tối ưu hóa truy vấn
             Query.limit(100)
           ]);
@@ -85,8 +80,8 @@ export default function ChatListScreen() {
           console.error("Lỗi khi tải danh sách người dùng:", e);
         }
     };
-    fetchUsers();
-  }, [dbId, usersCollectionId]); // Thêm dependencies
+    fetchUsers(); // Thêm dependencies
+  }, []);
 
   // 3. Xử lý khi nhấn vào Chat Item
   const handlePressChat = (roomId: string, roomName: string) => {
@@ -115,25 +110,11 @@ export default function ChatListScreen() {
       }));
 
       // Kiểm tra execution response
-      if (execution.status !== 'completed' || execution.responseBody === '') {
-        console.error("Function execution failed:", execution.responseBody);
-        throw new Error("Lỗi khi tạo phòng chat từ Function.");
+      // [SỬA] Sử dụng responseStatusCode và responseBody
+      if (execution.status !== 'completed' || execution.responseStatusCode !== 200) {
+        throw new Error(JSON.parse(execution.responseBody).message || "Lỗi khi tạo phòng chat từ Function.");
       }
       
-      const response = JSON.parse(execution.responseBody);
-      const chatId = response.chatId;
-
-      // Sau khi tạo xong, refresh list phòng chat
-      await fetchChatRooms();
-
-      // Chuyển hướng đến phòng chat mới (sau khi đã refresh)
-      router.push({
-        pathname: '/screens/chat/room',
-        params: { 
-          roomId: chatId, 
-          roomName: selectedUserName 
-        },
-      });
 
     } catch (error) {
       console.error("Lỗi khi gọi Appwrite Function:", error);

@@ -6,21 +6,22 @@ import { account } from '../config/appwrite';
 export type UserRole = 'tongquanly' | 'quanlynhansu' | 'truongphong' | 'thukho' | 'nhanvienkd' | 'nhanvienkho' | 'unassigned' | null;
 
 export interface AppwriteUser extends Models.User<Models.Preferences> {
+  avatarUrl: any;
   displayName: string;
   uid: string;
-  // Các thuộc tính custom sẽ được lưu trong `prefs`
-  // Chúng ta sẽ tạo một interface ảo để dễ truy cập
   role: UserRole;
   managerId: string | null;
-  // Thêm các trường khác nếu cần
+  phoneNumber: string | null;
+  dateOfBirth: string | null;
 }
 
 interface AuthContextType {
   user: Models.User<Models.Preferences> | null;
-  currentUser: AppwriteUser | null; // User với thông tin đầy đủ từ prefs
+  currentUser: AppwriteUser | null; 
   loading: boolean;
   login: (email: string, pass: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshCurrentUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -29,6 +30,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   login: async () => {},
   logout: async () => {},
+  refreshCurrentUser: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -38,43 +40,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<AppwriteUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const refreshCurrentUser = async () => {
+    try {
+      const loggedInUser = await account.get();
+      console.log("loggedInUser:", loggedInUser);
+      console.log("loggedInUser.prefs:", loggedInUser.prefs);
+      setUser(loggedInUser);
+      const userWithDetails: AppwriteUser = {
+        ...loggedInUser,
+        role: loggedInUser.prefs.role || 'unassigned',
+        managerId: loggedInUser.prefs.managerId || null,
+        displayName: loggedInUser.name,
+        uid: loggedInUser.$id,
+        phoneNumber: loggedInUser.prefs.phoneNumber || null,
+        dateOfBirth: loggedInUser.prefs.dateOfBirth || null,
+        avatarUrl: loggedInUser.prefs.avatarUrl || undefined, // Assign avatarUrl from prefs
+      };
+      console.log("userWithDetails:", userWithDetails);
+      setCurrentUser(userWithDetails);
+    } catch (e) {
+      setUser(null);
+      setCurrentUser(null);
+    }
+  };
+
   useEffect(() => {
     const checkUser = async () => {
-      try {
-        const loggedInUser = await account.get();
-        setUser(loggedInUser);
-        // Appwrite lưu trữ thông tin custom trong `prefs`
-        const userWithDetails: AppwriteUser = {
-          ...loggedInUser,
-          role: loggedInUser.prefs.role || 'unassigned',
-          managerId: loggedInUser.prefs.managerId || null,
-          displayName: loggedInUser.name,
-          uid: loggedInUser.$id
-        };
-        setCurrentUser(userWithDetails);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (e) {
-        setUser(null);
-        setCurrentUser(null);
-      } finally {
-        setLoading(false);
-      }
+      await refreshCurrentUser();
+      setLoading(false);
     };
     checkUser();
   }, []);
 
   const login = async (email: string, pass: string) => {
     await account.createEmailPasswordSession(email, pass);
-    const loggedInUser = await account.get();
-    setUser(loggedInUser);
-    const userWithDetails: AppwriteUser = {
-      ...loggedInUser,
-      role: loggedInUser.prefs.role || 'unassigned',
-      managerId: loggedInUser.prefs.managerId || null,
-      displayName: loggedInUser.name,
-      uid: loggedInUser.$id
-    };
-    setCurrentUser(userWithDetails);
+    await refreshCurrentUser();
   };
 
   const logout = async () => {
@@ -89,6 +89,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     loading,
     login,
     logout,
+    refreshCurrentUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

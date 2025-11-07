@@ -3,8 +3,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'; // Giữ lại React
-import { useAuth } from '../../context/AuthContext';
-import { Category, Product, ProductVariant } from '../../services/ProductService';
+import { useAuth } from '../../context/AuthContext'; // Giữ lại
+import { Category } from '../../services/CategoryService'; // Sửa: Import từ CategoryService
+import { Product, ProductVariant } from '../../services/ProductService';
 import { COLORS, styles } from '../../styles/homeStyle';
 import { CustomPicker } from '../CustomPicker';
 
@@ -12,18 +13,18 @@ interface ProductEditModalProps {
   isVisible: boolean;
   onClose: () => void;
   productToEdit: Product | null;
-  onSave: (data: Product | Omit<Product, 'id'>) => Promise<void>;
+  onSave: (data: Product | Omit<Product, '$id'>) => Promise<void>;
   categories: Category[];
   onShowMessage: (title: string, message: string) => void;
 }
 
 export const ProductEditModal: React.FC<ProductEditModalProps> = ({ isVisible, onClose, productToEdit, onSave, categories, onShowMessage }) => {
   const [name, setName] = useState('');
-  const [sku, setSku] = useState('');
-  const [unit, setUnit] = useState('');
-  const [price, setPrice] = useState(0);
-  const [category, setCategory] = useState('');
-  const [variants, setVariants] = useState<ProductVariant[]>([{ color: '', size: '', quantity: 0 }]);
+  const [sku, setSku] = useState<string>('');
+  const [unit, setUnit] = useState<string>('');
+  const [price, setPrice] = useState<number>(0);
+  const [category, setCategory] = useState<string>('');
+  const [variants, setVariants] = useState<ProductVariant[]>([{ color: '', size: '', quantity: 0 }]); // Sửa: Khởi tạo với kiểu dữ liệu đúng
   const [loading, setLoading] = useState(false);
   const { currentUser } = useAuth();
   const isTopLevelManagement = currentUser?.role === 'tongquanly' || currentUser?.role === 'quanlynhansu';
@@ -33,12 +34,12 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({ isVisible, o
 
   useEffect(() => {
     if (productToEdit) {
-      setName(productToEdit.name);
-      setSku(productToEdit.sku);
-      setUnit(productToEdit.unit);
-      setPrice(productToEdit.price);
+      setName(productToEdit.name || '');
+      setSku(productToEdit.sku || '');
+      setUnit(productToEdit.unit || '');
+      setPrice(productToEdit.price || 0);
       setCategory(productToEdit.category || '');
-      setVariants(productToEdit.variants.length > 0 ? productToEdit.variants : [{ color: '', size: '', quantity: 0 }]);
+      setVariants(productToEdit.variants && productToEdit.variants.length > 0 ? productToEdit.variants : [{ color: '', size: '', quantity: 0 }]);
     } else {
       setName(''); setSku(''); setUnit(''); setPrice(0); setCategory('');
       setVariants([{ color: '', size: '', quantity: 0 }]);
@@ -76,12 +77,12 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({ isVisible, o
       });
     }
 
-    const totalQuantity = finalVariants.reduce((sum, v) => sum + v.quantity, 0);
-    const productData = { name, sku, unit, price, category, variants: finalVariants, totalQuantity };
+    const stock = finalVariants.reduce((sum, v) => sum + (v.quantity || 0), 0);
+    const productData = { name, sku, unit, price, category, variants: finalVariants, stock, lastUpdatedBy: currentUser?.uid };
 
     try {
       if (isEditing) {
-        await onSave({ ...productData, id: productToEdit!.id });
+        await onSave({ ...productData, $id: productToEdit!.$id }); // Đảm bảo truyền đúng $id
       } else {
         await onSave(productData);
       }
@@ -157,7 +158,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({ isVisible, o
             <CustomPicker
               iconName="grid-outline"
               placeholder="-- Chọn danh mục --"
-              items={categories.map(c => ({ label: c.name, value: c.id! }))}
+              items={categories.map(c => ({ label: c.name, value: c.$id! }))}
               selectedValue={category}
               onValueChange={setCategory}
               enabled={!isWarehouseKeeper}

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react'; // Giữ lại React
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -13,18 +13,17 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CustomPicker } from '../../components/CustomPicker';
 import { QuickNav } from '../../components/QuickNav';
-import { CategoryManagerModal } from '../../components/sales/CategoryManagerModal'; // Đã sửa lỗi
-import { ConfirmationModal } from '../../components/sales/ConfirmationModal'; // Đã sửa lỗi
-import { OrderEditModal } from '../../components/sales/OrderEditModal'; // Đã sửa lỗi
+import { CategoryManagerModal } from '../../components/sales/CategoryManagerModal';
+import { ConfirmationModal } from '../../components/sales/ConfirmationModal';
+import { OrderEditModal } from '../../components/sales/OrderEditModal';
 import { ProductEditModal } from '../../components/sales/ProductEditModal';
 import { useAuth } from '../../context/AuthContext';
-import { Order, OrderService, OrderStatus } from '../../services/OrderService';
-import { Category, Product, ProductService } from '../../services/ProductService';
+import { Category, CategoryService } from '../../services/CategoryService';
+import { OrderService } from '../../services/OrderService';
+import { Product, ProductService } from '../../services/ProductService';
 import { StaffService, StaffUser } from '../../services/StaffService';
+import { Order, OrderStatus } from '../../services/types';
 import { COLORS, styles } from '../../styles/homeStyle';
-
-// --- COMPONENTS ---
-
 
 // --- MÀN HÌNH SALES CHÍNH ---
 export default function SalesScreen() {
@@ -39,8 +38,7 @@ export default function SalesScreen() {
   const [isCategoryManagerVisible, setCategoryManagerVisible] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [orderToEdit, setOrderToEdit] = useState<Order | null>(null);
-  const [, setStaffList] = useState<StaffUser[]>([]);
-  
+
   const [isAssignToWHManagerModalVisible, setAssignToWHManagerModalVisible] = useState(false);
   const [orderToAssignToWHManager, setOrderToAssignToWHManager] = useState<Order | null>(null);
   const [warehouseManagers, setWarehouseManagers] = useState<StaffUser[]>([]);
@@ -54,57 +52,96 @@ export default function SalesScreen() {
   const [confirmationAction, setConfirmationAction] = useState<(() => void) | null>(null);
   const [isSuccessModal, setIsSuccessModal] = useState(false);
 
-  // [SỬA] Thống nhất logic xác định quyền quản lý dựa trên vai trò 'role'
+  // Thống nhất logic xác định quyền quản lý dựa trên vai trò 'role'
   const isTopLevelManagement = currentUser?.role === 'tongquanly' || currentUser?.role === 'quanlynhansu';
   const canManage = currentUser?.role === 'truongphong' || currentUser?.role === 'thukho' || isTopLevelManagement;
   const canCreateOrder = currentUser?.role === 'truongphong' || currentUser?.role === 'nhanvienkd' || isTopLevelManagement;
   // Khởi tạo viewMode dựa trên quyền tạo đơn hàng
-  const [viewMode, setViewMode] = useState<'products' | 'orders'>(canCreateOrder ? 'orders' : 'products'); // Sửa lỗi: Xóa khai báo trùng lặp ở trên
+  const [viewMode, setViewMode] = useState<'products' | 'orders'>(canCreateOrder ? 'orders' : 'products');
 
-   
   useEffect(() => {
-    const unsubscribeProducts = ProductService.subscribeToProducts((productsData) => {
-      setProducts(productsData);
-      setLoading(false);
-    });
-    const unsubscribeCategories = ProductService.subscribeToCategories((categoriesData) => {
-      setCategories(categoriesData);
-    });
+    const subscriptions: (() => void)[] = [];
+    let isMounted = true;
 
-    let unsubscribeOrders: (() => void) | undefined = undefined;
-    // [SỬA] Thêm logic để Tổng quản lý có thể xem tất cả đơn hàng
-    if (currentUser?.role === 'tongquanly') {
-      unsubscribeOrders = OrderService.subscribeToAllOrders(setOrders);
-    } else if (currentUser?.role === 'truongphong' && user?.uid) {
-      StaffService.getStaffList(user.uid, currentUser.role, currentUser.managerId).then(staff => {
-        setStaffList(staff);
-        const staffUids = staff.filter(s => s.role === 'nhanvienkd').map(s => s.uid);
-        unsubscribeOrders = OrderService.subscribeToManagerOrders(user.uid, staffUids, setOrders);
+    const initializeSubscriptions = async () => {
+      setLoading(true);
+
+      // Subscribe to products
+      const unsubscribeProducts = ProductService.subscribeToProducts((productsData) => {
+        if (isMounted) {
+          setProducts(productsData);
+          setLoading(false); // Set loading to false after the first data fetch
+        }
       });
-      // Lấy danh sách thủ kho để phân công
-      StaffService.getStaffByRole('thukho').then(whManagers => {
-        setWarehouseManagers(whManagers);
+      subscriptions.push(unsubscribeProducts);
+
+      // Subscribe to categories
+      const unsubscribeCategories = CategoryService.subscribeToCategories((categoriesData) => {
+        if (isMounted) setCategories(categoriesData);
       });
-    } else if (currentUser?.role === 'nhanvienkd' && user?.uid) {
-      unsubscribeOrders = OrderService.subscribeToSalespersonOrders(user.uid, setOrders);
-    } 
+      subscriptions.push(unsubscribeCategories);
+
+      // Setup order subscription based on user role
+      if (user?.$id && currentUser?.role) {
+        let unsubscribeOrder: (() => void) | undefined;
+        
+        // **KHỐI CODE ĐÃ SỬA LỖI**
+        if (currentUser.role === 'tongquanly') {
+          unsubscribeOrder = OrderService.subscribeToAllOrders(setOrders);
+        } else if (currentUser.role === 'truongphong') {
+          
+          const managerIdToUse = currentUser.managerId || ''; 
+          
+          const staff = (await StaffService.getStaffList(user.$id!, currentUser.role, managerIdToUse)) || [];
+          const staffUids = staff.filter((s: { role: string; }) => s.role === 'nhanvienkd').map((s: { uid: any; }) => s.uid);
+          let whManagers: StaffUser[] = [];
+          try {
+            whManagers = (await StaffService.getStaffByRole('thukho')) as StaffUser[];
+          } catch (error) {
+            console.error("Error fetching warehouse managers:", error);
+            whManagers = []; // Ensure it's an empty array on error
+            // Optionally, show a message to the user
+            // handleShowMessage('Lỗi', 'Không thể tải danh sách thủ kho.');
+          }
+          if (isMounted) setWarehouseManagers(whManagers);
+          
+          // Sử dụng user.$id!
+          unsubscribeOrder = OrderService.subscribeToManagerOrders(user.$id!, staffUids, setOrders);
+          
+        } else if (currentUser.role === 'nhanvienkd') {
+          unsubscribeOrder = OrderService.subscribeToSalespersonOrders(user.$id!, setOrders);
+        } else if (currentUser.role === 'thukho') {
+          unsubscribeOrder = OrderService.subscribeToWarehouseManagerOrders(user.$id!, setOrders);
+        }
+        // **KẾT THÚC KHỐI SỬA LỖI**
+
+        if (unsubscribeOrder) {
+          subscriptions.push(unsubscribeOrder);
+        } else {
+          console.warn("Order subscription was not initialized for current user role or ID.");
+        }
+      }
+    };
+
+    initializeSubscriptions();
 
     return () => {
-      unsubscribeProducts();
-      unsubscribeCategories();
-      if (unsubscribeOrders) unsubscribeOrders();
+      isMounted = false;
+      console.log("Cleaning up sales subscriptions...");
+      subscriptions.forEach(unsubscribe => {
+        if (unsubscribe) unsubscribe();
+      });
     };
-  }, [currentUser, user]); // Thêm currentUser vào dependency array
+  }, [currentUser, user?.$id]); // Thêm currentUser vào dependency array
 
-  // [SỬA LỖI] Di chuyển khối kiểm tra quyền xuống sau khi tất cả các hooks đã được gọi.
-  // Điều này đảm bảo số lượng hooks không thay đổi giữa các lần render.
+  // Kiểm tra quyền truy cập (giữ nguyên)
   const allowedRoles: (string | null | undefined)[] = ['tongquanly', 'truongphong', 'nhanvienkd', 'thukho'];
   if (!allowedRoles.includes(currentUser?.role)) {
     // Trả về một View trống hoặc một màn hình thông báo không có quyền truy cập.
     return <View />;
   }
 
-  // Sửa lỗi: Hàm getStatusColor bị sai cú pháp
+  // Sửa lỗi: Hàm getStatusColor bị sai cú pháp (giữ nguyên, đã đúng)
   const getStatusColor = (status: OrderStatus) => {
     const colors: Record<OrderStatus, string> = { Draft: '#6B7280', Confirmed: '#F59E0B', Assigned: '#3B82F6', Processing: '#8B5CF6', Completed: '#0E7490', Shipped: '#10B981', Canceled: '#EF4444', PendingRevision: '#D97706' };
     return colors[status] || '#6B7280';
@@ -112,9 +149,10 @@ export default function SalesScreen() {
 
   const filteredProducts = products.filter(p => {
     const matchesCategory = selectedCategoryId ? p.category === selectedCategoryId : true;
-    const matchesSearch = searchText ?
-      p.name.toLowerCase().includes(searchText.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchText.toLowerCase())
+    const matchesSearch = searchText ? (
+      (p.name ?? '').toLowerCase().includes(searchText.toLowerCase()) ||
+      (p.sku ?? '').toLowerCase().includes(searchText.toLowerCase())
+    )
       : true;
     return matchesCategory && matchesSearch;
   });
@@ -122,16 +160,26 @@ export default function SalesScreen() {
   const handleShowMessage = (title: string, message: string, onConfirm?: () => void) => {
     setConfirmationTitle(title);
     setConfirmationMessage(message);
-    setIsSuccessModal(!onConfirm); 
+    setIsSuccessModal(!onConfirm);
     setConfirmationAction(() => onConfirm || null);
     setConfirmationModalVisible(true);
   };
 
-  const handleSaveProduct = async (productData: Product | Omit<Product, 'id'>) => {
-    if ('id' in productData) {
-      await ProductService.updateProduct(productData.id!, productData);
+  const handleSaveProduct = async (productData: Product | Omit<Product, '$id'>) => {
+    if (!currentUser?.uid) {
+      handleShowMessage('Lỗi', 'Không thể lưu sản phẩm. Thông tin người dùng không có sẵn.');
+      return;
+    }
+
+    const dataToSave = { ...productData, lastUpdatedBy: currentUser.uid };
+
+    if ('$id' in dataToSave && dataToSave.$id) {
+      // For update, ensure we only pass updatable fields and omit $id and stock
+      const { $id, stock, ...rest } = dataToSave;
+      await ProductService.updateProduct($id, rest);
     } else {
-      await ProductService.addProduct(productData);
+      // For add, ensure we omit $id and stock
+      await ProductService.addProduct(dataToSave);
     }
     setProductToEdit(null);
     setModalVisible(false);
@@ -156,7 +204,7 @@ export default function SalesScreen() {
       "Xác nhận xóa",
       `Bạn có chắc chắn muốn xóa sản phẩm "${name}" khỏi kho không?`,
       () => {
-        ProductService.deleteProduct(id)
+        ProductService.deleteProduct(id) // id ở đây là $id
           .then(() => handleShowMessage("Thành công", "Sản phẩm đã bị xóa."))
           .catch((e) => handleShowMessage("Lỗi", e.message));
       }
@@ -174,7 +222,7 @@ export default function SalesScreen() {
   };
 
   const handleDeleteOrder = (order: Order) => {
-    // [SỬA] Cho phép 'truongphong' và 'tongquanly' xóa đơn hàng
+    // Cho phép 'truongphong' và 'tongquanly' xóa đơn hàng
     if (!['truongphong', 'tongquanly'].includes(currentUser?.role || '')) {
       handleShowMessage('Không có quyền', 'Bạn không có quyền xóa đơn hàng.');
       return;
@@ -198,7 +246,7 @@ export default function SalesScreen() {
     const whManager = warehouseManagers.find(s => s.uid === warehouseManagerId);
     if (!whManager) return;
 
-    await OrderService.assignToWarehouseManager(orderToAssignToWHManager.id, whManager.uid, whManager.displayName);
+    await OrderService.assignToWarehouseManager(orderToAssignToWHManager.id, whManager.uid, whManager.displayName || 'Unknown Manager');
     handleShowMessage('Thành công', `Đã giao đơn hàng cho thủ kho ${whManager.displayName}.`);
     setAssignToWHManagerModalVisible(false);
     setOrderToAssignToWHManager(null);
@@ -209,28 +257,27 @@ export default function SalesScreen() {
     <View style={styles.salesStyles.productItem}>
       <View style={styles.salesStyles.productInfo}>
         <Text style={styles.salesStyles.productName}>{item.name}</Text>
-        <Text style={styles.salesStyles.productDetails}>Mã SKU: {item.sku} | Danh mục: {categories.find(c => c.id === item.category)?.name || 'N/A'}</Text>
-        {/* [THÊM] Hiển thị chi tiết các biến thể */}
+        <Text style={styles.salesStyles.productDetails}>Mã SKU: {item.sku} | Danh mục: {categories.find(c => c.$id === item.category)?.name || 'N/A'}</Text>
+        {/* Hiển thị chi tiết các biến thể */}
         <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6' }}>
           {item.variants && item.variants.length > 0 ? (
             item.variants.map((variant, index) => (
-              // [SỬA LỖI] Hợp nhất thành một Text duy nhất để tránh lỗi lồng component
               <Text key={index} style={[styles.salesStyles.productDetails, { color: '#374151' }]}>{`- ${variant.color ? `Màu: ${variant.color}, ` : ''}Size: ${variant.size} | Tồn: ${variant.quantity}`}</Text>
             ))
           ) : (
             <Text style={[styles.salesStyles.productDetails, { fontStyle: 'italic' }]}>Chưa có biến thể nào.</Text>
           )}
         </View>
-        <Text style={styles.salesStyles.productDetails}>Giá: {item.price.toLocaleString('vi-VN')} VND</Text>
+        <Text style={styles.salesStyles.productDetails}>Giá: {(item.price ?? 0).toLocaleString('vi-VN')} VND</Text>
       </View>
       <View style={styles.salesStyles.quantityControl}>
-        <Text style={styles.salesStyles.quantityText}>{item.totalQuantity} {item.unit}</Text>
+        <Text style={styles.salesStyles.quantityText}>{item.stock} {item.unit}</Text>
         {canManage && (
           <View style={{ marginLeft: 15, flexDirection: 'row', alignItems: 'center' }}>
             <TouchableOpacity onPress={() => handleOpenModal(item)} style={{ padding: 5, marginRight: 5 }}>
               <Ionicons name="create-outline" size={26} color="#3B82F6" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleDeleteProduct(item.id!, item.name)} style={{ padding: 5 }}>
+            <TouchableOpacity onPress={() => handleDeleteProduct(item.$id!, item.name!)} style={{ padding: 5 }}>
               <Ionicons name="trash-outline" size={26} color="#EF4444" />
             </TouchableOpacity>
           </View>
@@ -246,8 +293,8 @@ export default function SalesScreen() {
         <Text style={[styles.warehouseStyles.statusText, { color: getStatusColor(item.status) }]}>{item.status}</Text>
       </View>
       <Text style={styles.warehouseStyles.orderInfo}>Người tạo: {item.creatorName}</Text>
-      <Text style={styles.warehouseStyles.orderInfo}>Ngày tạo: {item.createdAt?.toDate().toLocaleDateString('vi-VN')}</Text>
-      {/* [THÊM] Hiển thị ghi chú nếu đơn hàng bị báo cáo */}
+      <Text style={styles.warehouseStyles.orderInfo}>Ngày tạo: {item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : 'N/A'}</Text>
+      {/* Hiển thị ghi chú nếu đơn hàng bị báo cáo */}
       {item.status === 'PendingRevision' && item.revisionNote && (
         <Text style={[styles.warehouseStyles.orderInfo, { color: COLORS.error, fontStyle: 'italic' }]}>Lý do từ kho: {item.revisionNote}</Text>
       )}
@@ -259,13 +306,13 @@ export default function SalesScreen() {
             <Text style={styles.warehouseStyles.actionButtonText}>Giao cho Kho</Text>
           </TouchableOpacity>
         )}
-        {/* [SỬA] Cho phép sửa đơn hàng khi ở trạng thái PendingRevision */}
+        {/* Cho phép sửa đơn hàng khi ở trạng thái PendingRevision, Draft, Confirmed */}
         {(item.status === 'Draft' || item.status === 'Confirmed' || item.status === 'PendingRevision') && (
           <TouchableOpacity onPress={() => handleOpenOrderModal(item)} style={[styles.warehouseStyles.actionButton, { backgroundColor: COLORS.accent, marginRight: 10 }]}>
             <Text style={styles.warehouseStyles.actionButtonText}>Sửa</Text>
           </TouchableOpacity>
         )}
-        {/* [SỬA] Cho phép 'truongphong' và 'tongquanly' xóa */}
+        {/* Cho phép 'truongphong' và 'tongquanly' xóa */}
         {['truongphong', 'tongquanly'].includes(currentUser?.role || '') && (
           <TouchableOpacity onPress={() => handleDeleteOrder(item)} style={[styles.warehouseStyles.actionButton, { backgroundColor: COLORS.error }]}>
             <Text style={styles.warehouseStyles.actionButtonText}>Xóa</Text>
@@ -302,7 +349,7 @@ export default function SalesScreen() {
                   </TouchableOpacity>
                 )}
                 {currentUser?.role !== 'thukho' && canManage && (
-                  // [SỬA] Thay đổi nút thêm sản phẩm từ icon thành nút có chữ rõ ràng hơn
+                  // Thay đổi nút thêm sản phẩm từ icon thành nút có chữ rõ ràng hơn
                   <TouchableOpacity onPress={() => handleOpenModal(null)} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }}>
                     <Ionicons name="add" size={20} color={COLORS.white} />
                     <Text style={{ color: COLORS.white, fontWeight: 'bold', marginLeft: 5, fontSize: 14 }}>Thêm mới</Text>
@@ -329,18 +376,18 @@ export default function SalesScreen() {
                 </TouchableOpacity>
                 {categories.map(cat => (
                   <TouchableOpacity
-                    key={cat.id}
-                    onPress={() => setSelectedCategoryId(cat.id!)}
-                    style={{ padding: 8, backgroundColor: selectedCategoryId === cat.id ? '#10B981' : '#E5E7EB', borderRadius: 8, marginRight: 8 }}
+                    key={cat.$id}
+                    onPress={() => setSelectedCategoryId(cat.$id!)}
+                    style={{ padding: 8, backgroundColor: selectedCategoryId === cat.$id ? '#10B981' : '#E5E7EB', borderRadius: 8, marginRight: 8 }}
                   >
-                    <Text style={{ color: selectedCategoryId === cat.id ? '#FFFFFF' : '#1F2937' }}>{cat.name}</Text>
+                    <Text style={{ color: selectedCategoryId === cat.$id ? '#FFFFFF' : '#1F2937' }}>{cat.name}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
             </View>
             <FlatList
               data={filteredProducts}
-              keyExtractor={(item) => item.id!}
+              keyExtractor={(item) => item.$id!}
               renderItem={renderProductItem}
               style={styles.salesStyles.productList}
               contentContainerStyle={{ paddingBottom: 20 }}
@@ -413,7 +460,7 @@ export default function SalesScreen() {
             <CustomPicker
               iconName="person-outline"
               placeholder="-- Chọn thủ kho --"
-              items={warehouseManagers.map(s => ({ label: s.displayName, value: s.uid }))}
+              items={warehouseManagers.map(s => ({ label: s.displayName || 'Unknown Manager', value: s.uid }))}
               selectedValue={null} // Để trống ban đầu
               onValueChange={(value: string) => {
                 if (value) handleAssignToWarehouseManager(value);

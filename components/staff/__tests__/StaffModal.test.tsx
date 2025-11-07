@@ -1,8 +1,8 @@
+import { beforeEach, describe, expect, fireEvent, it, jest, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { StaffModal } from '../StaffModal';
 import { useAuth } from '../../../context/AuthContext';
 import { StaffUser } from '../../../services/StaffService';
+import { StaffModal } from '../StaffModal';
 
 // Mock necessary modules
 jest.mock('../../../context/AuthContext', () => ({

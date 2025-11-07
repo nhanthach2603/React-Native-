@@ -1,61 +1,69 @@
-// d:\React-Native-\config\appwrite.ts (ĐÃ SỬA LỖI FUNCTIONS)
-
+// d:\React-Native-\config\appwrite.ts
+import { Account, Client, Databases, Functions, Realtime, Storage } from "appwrite";
 import Constants from "expo-constants";
 
-import { Account, Client, Databases, Functions, Realtime, Storage } from 'appwrite';
+/**
+ * Lấy extra từ expo config (hỗ trợ cả manifest cũ và expoConfig)
+ */
+const extra =
+  (Constants as any).manifest?.extra ||
+  (Constants as any).expoConfig?.extra ||
+  {};
 
-const extra = (Constants.manifest && Constants.manifest.extra) || (Constants.expoConfig && Constants.expoConfig.extra) || {};
-console.log("EXTRA:", extra);
-console.log("APPWRITE_PROJECT_ID:", extra.APPWRITE_PROJECT_ID);
-console.log("APPWRITE_ENDPOINT:", extra.APPWRITE_ENDPOINT);
-const APPWRITE_BUCKET_CHAT_FILES = extra.APPWRITE_BUCKET_CHAT_FILES;
-const APPWRITE_BUCKET_FILES = extra.APPWRITE_BUCKET_FILES;
-const APPWRITE_COLLECTION_CATEGORIES = extra.APPWRITE_COLLECTION_CATEGORIES;
-const APPWRITE_COLLECTION_MESSAGES = extra.APPWRITE_COLLECTION_MESSAGES;
-const APPWRITE_COLLECTION_ORDERS = extra.APPWRITE_COLLECTION_ORDERS;
-const APPWRITE_COLLECTION_PRODUCTS = extra.APPWRITE_COLLECTION_PRODUCTS;
-const APPWRITE_COLLECTION_ROOMS = extra.APPWRITE_COLLECTION_ROOMS;
-const APPWRITE_COLLECTION_USERS = extra.APPWRITE_COLLECTION_USERS;
-const APPWRITE_DATABASE_ID = extra.APPWRITE_DATABASE_ID;
-const APPWRITE_ENDPOINT = extra.APPWRITE_ENDPOINT;
-const APPWRITE_PROJECT_ID = extra.APPWRITE_PROJECT_ID;
+// debug nhỏ — bạn có thể bỏ các console log này sau khi chạy ok
+console.log("EXTRA keys:", Object.keys(extra || {}));
+console.log("APPWRITE_PROJECT_ID:", extra?.APPWRITE_PROJECT_ID);
+console.log("APPWRITE_ENDPOINT:", extra?.APPWRITE_ENDPOINT);
 
-if (!APPWRITE_PROJECT_ID?.length || !APPWRITE_ENDPOINT?.length) {
-	throw new Error("Vui lòng cấu hình APPWRITE_PROJECT_ID và APPWRITE_ENDPOINT trong file .env");
+const APPWRITE_ENDPOINT = extra?.APPWRITE_ENDPOINT;
+const APPWRITE_PROJECT_ID = extra?.APPWRITE_PROJECT_ID;
+const APPWRITE_DATABASE_ID = extra?.APPWRITE_DATABASE_ID;
+
+const APPWRITE_COLLECTION_USERS = extra?.APPWRITE_COLLECTION_USERS;
+const APPWRITE_COLLECTION_PRODUCTS = extra?.APPWRITE_COLLECTION_PRODUCTS;
+const APPWRITE_COLLECTION_CATEGORIES = extra?.APPWRITE_COLLECTION_CATEGORIES;
+const APPWRITE_COLLECTION_ORDERS = extra?.APPWRITE_COLLECTION_ORDERS;
+const APPWRITE_COLLECTION_MESSAGES = extra?.APPWRITE_COLLECTION_MESSAGES;
+const APPWRITE_COLLECTION_ROOMS = extra?.APPWRITE_COLLECTION_ROOMS;
+const APPWRITE_BUCKET_FILES = extra?.APPWRITE_BUCKET_FILES;
+const APPWRITE_BUCKET_CHAT_FILES = extra?.APPWRITE_BUCKET_CHAT_FILES;
+
+console.log("APPWRITE_DATABASE_ID (before check):", APPWRITE_DATABASE_ID);
+console.log("APPWRITE_COLLECTION_USERS (before check):", APPWRITE_COLLECTION_USERS);
+
+// Kiểm tra tối thiểu
+if (!APPWRITE_PROJECT_ID || !APPWRITE_ENDPOINT || !APPWRITE_DATABASE_ID) {
+  // Throw để dev biết cấu hình sai. Bạn có thể chuyển sang console.warn nếu muốn non-fatal.
+  throw new Error(
+    "Vui lòng cấu hình APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID và APPWRITE_DATABASE_ID trong app.json (expo.extra)."
+  );
 }
 
-const client = new Client();
-
-client
-  .setEndpoint(APPWRITE_ENDPOINT) // Your Appwrite Endpoint 
-  .setProject(APPWRITE_PROJECT_ID); // Your project ID
+// Khởi tạo client + service instances
+const client = new Client()
+  .setEndpoint(APPWRITE_ENDPOINT) // ví dụ: https://fra.cloud.appwrite.io/v1
+  .setProject(APPWRITE_PROJECT_ID);
 
 const account = new Account(client);
 const databases = new Databases(client);
 const storage = new Storage(client);
 const realtime = new Realtime(client);
-const functions = new Functions(client); // <-- KHỞI TẠO DỊCH VỤ FUNCTIONS
+const functions = new Functions(client);
 
+// Gói config tiện lợi
 const config = {
-    endpoint: APPWRITE_ENDPOINT,
-    projectId: APPWRITE_PROJECT_ID,
-    databaseId: APPWRITE_DATABASE_ID,
-    userCollectionId: APPWRITE_COLLECTION_USERS,
-    productCollectionId: APPWRITE_COLLECTION_PRODUCTS,
-    categoryCollectionId: APPWRITE_COLLECTION_CATEGORIES,
-    orderCollectionId: APPWRITE_COLLECTION_ORDERS,
-    messageCollectionId: APPWRITE_COLLECTION_MESSAGES,
-    roomCollectionId: APPWRITE_COLLECTION_ROOMS,
-    storageBucketId: APPWRITE_BUCKET_FILES,
-    chatFilesBucketId: APPWRITE_BUCKET_CHAT_FILES,
+  endpoint: APPWRITE_ENDPOINT,
+  projectId: APPWRITE_PROJECT_ID,
+  databaseId: APPWRITE_DATABASE_ID,
+  userCollectionId: APPWRITE_COLLECTION_USERS,
+  productCollectionId: APPWRITE_COLLECTION_PRODUCTS,
+  categoryCollectionId: APPWRITE_COLLECTION_CATEGORIES,
+  orderCollectionId: APPWRITE_COLLECTION_ORDERS,
+  messageCollectionId: APPWRITE_COLLECTION_MESSAGES,
+  roomCollectionId: APPWRITE_COLLECTION_ROOMS,
+  storageBucketId: APPWRITE_BUCKET_FILES,
+  chatFilesBucketId: APPWRITE_BUCKET_CHAT_FILES,
 };
 
-// Export functions ra ngoài
 export { account, client, config, databases, functions, realtime, storage };
 
-// Đừng quên tạo file .env ở thư mục gốc và thêm vào:
-// APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
-// APPWRITE_PROJECT_ID=your_project_id
-// APPWRITE_DATABASE_ID=your_database_id
-// APPWRITE_COLLECTION_USERS=users
-// ... và các collection/bucket ID khác

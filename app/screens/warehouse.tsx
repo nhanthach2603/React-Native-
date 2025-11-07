@@ -18,6 +18,7 @@ import { CustomPicker } from '../../components/CustomPicker';
 import { QuickNav } from '../../components/QuickNav';
 import { client, databases } from '../../config/appwrite';
 import { useAuth } from '../../context/AuthContext';
+import { Order, OrderStatus } from '../../services/types';
 import { COLORS, styles } from '../../styles/homeStyle';
 
 const getActionText = (status: OrderStatus): string => {
@@ -27,25 +28,6 @@ const getActionText = (status: OrderStatus): string => {
     default: return '';
   }
 };
-
-// Định nghĩa lại các kiểu dữ liệu để không phụ thuộc vào service cũ
-export type OrderStatus = 'Pending' | 'Confirmed' | 'Assigned' | 'Processing' | 'PendingRevision' | 'Completed' | 'Shipped' | 'Canceled';
-
-export interface OrderItem {
-  productId: string;
-  productName: string;
-  qty: number;
-}
-
-export interface Order {
-  id: string; // $id
-  status: OrderStatus;
-  items: OrderItem[];
-  creatorName: string;
-  createdAt: string; // Appwrite trả về chuỗi ISO 8601
-  customerName?: string;
-  assignedToName?: string;
-}
 
 export default function WarehouseScreen() {
   const insets = useSafeAreaInsets();
@@ -116,14 +98,12 @@ export default function WarehouseScreen() {
   }, [role, user?.$id]);
 
   const handleUpdateStatus = async (order: Order) => {
-    // [SỬA LỖI] Dọn dẹp logic, đảm bảo điều hướng đến màn hình soạn hàng
-    if (order.status === 'Assigned') {
-      // Chuyển trạng thái sang 'Processing' trước khi vào màn hình soạn
-      await databases.updateDocument(dbId, ordersCollectionId, order.id, { status: 'Processing' });
-      // Điều hướng đến màn hình soạn hàng
-      router.push({ pathname: '/picking', params: { order: JSON.stringify(order) } });
-    } else if (order.status === 'Processing') {
-      // Nếu đang soạn dở, vẫn cho phép vào lại màn hình soạn
+    // [SỬA LỖI] Dọn dẹp logic, đảm bảo điều hướng đến màn hình soạn hàng và cập nhật trạng thái
+    if (order.status === 'Assigned' || order.status === 'Processing') {
+      if (order.status === 'Assigned') {
+        // Chuyển trạng thái sang 'Processing' trước khi vào màn hình soạn
+        await databases.updateDocument(dbId, ordersCollectionId, order.id, { status: 'Processing' });
+      }
       router.push({ pathname: '/picking', params: { order: JSON.stringify(order) } });
     }
   };

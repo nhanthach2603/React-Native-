@@ -1,5 +1,6 @@
-import { ID } from 'appwrite';
-import { account } from '../config/appwrite';
+// services/UserService.ts
+import { ID } from "appwrite";
+import { account } from "../config/appwrite";
 
 export interface CreateUserPayload {
   email: string;
@@ -9,30 +10,94 @@ export interface CreateUserPayload {
   dateOfBirth: string;
 }
 
-export const UserService = {
+export class UserService {
+  /**
+   * 🧑‍💻 Tạo tài khoản người dùng mới (client-side)
+   */
   async createUser(payload: CreateUserPayload): Promise<void> {
     const { email, password, displayName, phoneNumber, dateOfBirth } = payload;
-    
-    // Bước 1: Tạo người dùng với các thông tin cơ bản.
-    await account.create(ID.unique(), email, password, displayName);
-    
-    // Bước 2: Đăng nhập để tạo session, cần thiết cho việc cập nhật prefs.
-    await account.createEmailPasswordSession(email, password);
-    
-    // Bước 3: Cập nhật thông tin bổ sung (preferences) cho người dùng.
-    const formattedPhoneNumber = `+84${phoneNumber.substring(1)}`;
-    await account.updatePrefs({
-      phone: formattedPhoneNumber,
-      dateOfBirth: dateOfBirth,
-    });
-  },
 
-  async deleteUserByUid(uid: string): Promise<void> {
     try {
-      await account.deleteUser(uid);
+      // 1️⃣ Tạo người dùng mới
+      await account.create(ID.unique(), email, password, displayName);
+
+      // 2️⃣ Đăng nhập để tạo session
+      await account.createEmailPasswordSession(email, password);
+
+      // 3️⃣ Cập nhật thông tin bổ sung (prefs)
+      const formattedPhone = phoneNumber.startsWith("0")
+        ? `+84${phoneNumber.substring(1)}`
+        : phoneNumber;
+
+      await account.updatePrefs({
+        phoneNumber: formattedPhone,
+        dateOfBirth: dateOfBirth,
+      });
+
+      console.log("✅ Tạo tài khoản thành công cho:", email);
     } catch (error: any) {
-      console.error("Error deleting user:", error);
-      throw new Error(error.message || "Không thể xóa người dùng.");
+      console.error("🔥 Lỗi khi tạo người dùng:", error);
+      throw new Error(error.message || "Không thể tạo người dùng.");
     }
   }
-};
+
+  /**
+   * 🔐 Đăng nhập bằng email và mật khẩu
+   */
+  async login(email: string, password: string): Promise<void> {
+    try {
+      await account.createEmailPasswordSession(email, password);
+      console.log("✅ Đăng nhập thành công:", email);
+    } catch (error: any) {
+      console.error("🔥 Lỗi khi đăng nhập:", error);
+      throw new Error(error.message || "Sai email hoặc mật khẩu.");
+    }
+  }
+
+  /**
+   * 🔒 Đăng xuất người dùng hiện tại
+   */
+  async logout(): Promise<void> {
+    try {
+      await account.deleteSession("current");
+      console.log("✅ Đăng xuất thành công");
+    } catch (error: any) {
+      console.error("🔥 Lỗi khi đăng xuất:", error);
+      throw new Error(error.message || "Không thể đăng xuất.");
+    }
+  }
+
+  /**
+   * 🧾 Cập nhật thông tin người dùng hiện tại
+   */
+  async updateUserPrefs(data: Record<string, any>): Promise<void> {
+    try {
+      console.log("Dữ liệu gửi đi để cập nhật prefs:", data); // Log the data
+      console.log("Dữ liệu gửi đi để cập nhật prefs:", data); // Log the data
+      await account.updatePrefs(data);
+      console.log("✅ Cập nhật thông tin cá nhân thành công");
+    } catch (error: any) {
+      console.error("🔥 Lỗi khi cập nhật prefs:", {
+        name: error.name,
+        code: error.code,
+        type: error.type,
+        response: error.response,
+        message: error.message,
+      });
+      throw new Error(error.message || "Không thể cập nhật thông tin cá nhân.");
+    }
+  }
+
+  /**
+   * 👤 Lấy thông tin người dùng hiện tại
+   */
+  async getCurrentUser() {
+    try {
+      const user = await account.get();
+      return user;
+    } catch (error: any) {
+      console.error("🔥 Lỗi khi lấy thông tin người dùng:", error);
+      return null;
+    }
+  }
+}

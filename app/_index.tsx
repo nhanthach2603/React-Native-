@@ -15,7 +15,7 @@ export default function Index() {
     }
 
     if (user) {
-      router.replace('/screens'); // Chuyển hướng đến trang home nếu đã đăng nhập
+      router.replace('/(tabs)/home'); //'); // Chuyển hướng đến trang home nếu đã đăng nhập
     } else {
       router.replace('/(auth)'); // Chuyển hướng đến trang đăng nhập nếu chưa đăng nhập
     }

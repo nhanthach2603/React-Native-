@@ -4,8 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
 import { FlatList, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
-import { Order, OrderItem } from '../../services/OrderService';
 import { Product, ProductVariant } from '../../services/ProductService';
+import { Order, OrderItem } from '../../services/types';
 import { COLORS, styles } from '../../styles/homeStyle';
 import { OrderEditModalStyles } from '../../styles/OrderEditModalStyles'; // Import styles mới
 import { VariantSelectionModal } from './VariantSelectionModal'; // Import component mới
@@ -94,7 +94,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({ isVisible, onClo
       const newItem: OrderItem = {
         productId: product.id!,
         productName: product.name,
-        sku: product.sku,
+        sku: product.sku, // Sửa lỗi: Thêm sku
         price: product.price,
         qty: quantity,
         selectedVariant: variant,
@@ -137,14 +137,18 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({ isVisible, onClo
       onShowMessage('Lỗi', 'Đơn hàng phải có ít nhất một sản phẩm.');
       return;
     }
+    if (!currentUser) {
+      onShowMessage('Lỗi', 'Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.');
+      return;
+    }
     setLoading(true);
     const orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'> = {
       items,
       totalAmount,
       status: 'Confirmed',
-      createdBy: currentUser!.uid,
+      creatorId: currentUser!.uid,
       creatorName: currentUser!.displayName,
-      managerId: currentUser!.managerId,
+      managerId: currentUser.managerId ?? undefined,
       customerName,
       customerPhone,
       customerAddress,

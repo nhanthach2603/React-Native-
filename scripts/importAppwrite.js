@@ -64,7 +64,14 @@ async function importUsers() {
                     name: displayName,
                     email: email,
                     role: role,
-                    ...prefsData
+                    managerId: userData.managerId,
+                    phoneNumber: userData.phoneNumber,
+                    dateOfBirth: userData.dateOfBirth,
+                    address: userData.address,
+                    hourlyRate: userData.hourlyRate || 0,
+                    monthlyHours: userData.monthlyHours || 0,
+                    monthlySalary: userData.monthlySalary || 0,
+                    schedule: JSON.stringify(userData.schedule || '{}')
                 };
                 await databases.createDocument(APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_USERS, uid, userDocument);
                 console.log(`   -> Đã tạo document trong collection 'Users' cho ${email}.`);
@@ -95,7 +102,8 @@ async function importProductsAndCategories() {
         console.log(`\n📂 Chuẩn bị import ${categoriesData.length} danh mục...`);
         for (const category of categoriesData) {
             try {
-                await databases.createDocument(APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_CATEGORIES, category.id, category);
+                const { id, ...categoryData } = category; // Tách id ra khỏi data
+                await databases.createDocument(APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_CATEGORIES, id, categoryData);
                 console.log(`   -> Import thành công danh mục: ${category.name}`);
             } catch (e) {
                 if (e.code === 409) console.log(`   -> 🟡 Bỏ qua: Danh mục ${category.name} đã tồn tại.`);
@@ -111,7 +119,13 @@ async function importProductsAndCategories() {
         console.log(`\n📦 Chuẩn bị import ${productsData.length} sản phẩm...`);
         for (const product of productsData) {
              try {
-                await databases.createDocument(APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_PRODUCTS, product.id, product);
+                // Convert the variants array to a JSON string before creating the document
+                const productPayload = {
+                    ...product,
+                    variants: JSON.stringify(product.variants)
+                };
+                const { id, ...productData } = productPayload;
+                await databases.createDocument(APPWRITE_DATABASE_ID, APPWRITE_COLLECTION_PRODUCTS, id, productData);
                 console.log(`   -> Import thành công sản phẩm: ${product.name}`);
             } catch (e) {
                 if (e.code === 409) console.log(`   -> 🟡 Bỏ qua: Sản phẩm ${product.name} đã tồn tại.`);

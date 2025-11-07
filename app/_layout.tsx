@@ -1,6 +1,6 @@
 // app/_layout.tsx
 
-import { SplashScreen, Stack } from 'expo-router';
+import { SplashScreen, Stack, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, LogBox, View } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
@@ -11,13 +11,19 @@ LogBox.ignoreLogs([
 ]);
 
 function RootLayoutNav() {
-  const { loading } = useAuth();
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     if (!loading) {
+      if (user) {
+        router.replace('/(tabs)/home');
+      } else {
+        router.replace('/(auth)');
+      }
       SplashScreen.hideAsync();
     }
-  }, [loading]);
+  }, [loading, user, router]);
 
   if (loading) {
     return (
@@ -26,21 +32,14 @@ function RootLayoutNav() {
       </View>
     );
   }
-  
-  // KHÔNG CÓ LOGIC CHUYỂN HƯỚNG TẠI ĐÂY NỮA
 
   return (
     <Stack
-      // Thêm screenOptions để ẩn header cho tất cả các màn hình trong Stack này theo mặc định
       screenOptions={{ headerShown: false }}
     >
-      {/* Route gốc sẽ được xử lý bởi app/index.tsx */}
-      <Stack.Screen name="index" /> 
-      
-      {/* Khai báo các nhóm route của bạn */}
+      <Stack.Screen name="index" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="screens" />
-      {/* Khai báo các màn hình đơn lẻ ở thư mục gốc app/ */}
       <Stack.Screen name="picking" />
     </Stack>
   );
